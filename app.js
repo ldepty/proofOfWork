@@ -1,4 +1,4 @@
-document.addEventListener('DOMContentLoaded', function() {
+document.addEventListener('DOMContentLoaded', functioN() {
   // ===============================
   // Inspirational Quotes Section
   // ===============================
