@@ -1,4 +1,4 @@
-document.addEventListener('DOMContentLoaded', functioN() {
+document.addEventListener('DOMContentLoaded', function() {
   // ===============================
   // Inspirational Quotes Section
   // ===============================
@@ -421,71 +421,88 @@ if (dateInputValue) {
   
   noteDateInput.value = new Date().toISOString().split('T')[0];
   
-  addNoteButton.addEventListener('click', function() {
-    const dateValue = noteDateInput.value.trim();
-    const noteText = noteInput.value.trim();
-    if (!noteText) return;
-    const dateString = dateValue || new Date().toISOString().split('T')[0];
-    const newAchievement = {
-      id: Date.now(),
-      dateString,
-      text: noteText
-    };
+addNoteButton.addEventListener('click', function() {
+  const dateValue = noteDateInput.value.trim();
+  const noteText = noteInput.value.trim();
+  if (!noteText) return;
+  const dateString = dateValue || getSydneyNow().toISODate();
+  const newAchievement = {
+    id: Date.now(),
+    dateString,
+    text: noteText
+  };
+  // Only add if an achievement with this id or text doesn't already exist
+  if (!achievements.some(item => item.id === newAchievement.id)) {
     achievements.push(newAchievement);
     saveAchievements();
     renderAchievements();
     noteInput.value = '';
-  });
-  
-  function renderAchievements() {
-    notesDisplay.innerHTML = '';
-    const achievementsByDate = {};
-    achievements.forEach(item => {
-      if (!achievementsByDate[item.dateString]) {
-        achievementsByDate[item.dateString] = [];
-      }
-      achievementsByDate[item.dateString].push(item);
-    });
-    const sortedDates = Object.keys(achievementsByDate).sort();
-    sortedDates.forEach(dateStr => {
-      const noteGroup = document.createElement('div');
-      noteGroup.classList.add('note-group');
-      noteGroup.setAttribute('data-date', dateStr);
-      const dateHeader = document.createElement('h3');
-      dateHeader.textContent = dateStr;
-      noteGroup.appendChild(dateHeader);
-      const ul = document.createElement('ul');
-      achievementsByDate[dateStr].forEach(item => {
-        const li = document.createElement('li');
-        const noteTextSpan = document.createElement('span');
-        noteTextSpan.textContent = item.text;
-        const editBtn = document.createElement('button');
-        editBtn.textContent = 'Edit';
-        editBtn.addEventListener('click', function() {
-          if (editBtn.textContent === 'Edit') {
-            editBtn.textContent = 'Save';
-            const editInput = document.createElement('input');
-            editInput.type = 'text';
-            editInput.value = item.text;
-            li.replaceChild(editInput, noteTextSpan);
-          } else {
-            const editInput = li.querySelector('input');
-            const updatedText = editInput.value.trim() || item.text;
-            item.text = updatedText;
-            editBtn.textContent = 'Edit';
-            noteTextSpan.textContent = updatedText;
-            li.replaceChild(noteTextSpan, editInput);
-            saveAchievements();
-          }
-        });
-        li.appendChild(noteTextSpan);
-        li.appendChild(editBtn);
-        ul.appendChild(li);
-      });
-      noteGroup.appendChild(ul);
-      notesDisplay.appendChild(noteGroup);
-    });
   }
+});
+
+  
+  function deduplicateAchievements(achievementsArray) {
+  // Create a map keyed by achievement id to filter out duplicates.
+  const uniqueMap = new Map();
+  achievementsArray.forEach(item => {
+    uniqueMap.set(item.id, item);
+  });
+  return Array.from(uniqueMap.values());
+}
+
+function renderAchievements() {
+  // Remove duplicates before rendering.
+  achievements = deduplicateAchievements(achievements);
+
+  notesDisplay.innerHTML = '';
+  const achievementsByDate = {};
+  achievements.forEach(item => {
+    if (!achievementsByDate[item.dateString]) {
+      achievementsByDate[item.dateString] = [];
+    }
+    achievementsByDate[item.dateString].push(item);
+  });
+  const sortedDates = Object.keys(achievementsByDate).sort();
+  sortedDates.forEach(dateStr => {
+    const noteGroup = document.createElement('div');
+    noteGroup.classList.add('note-group');
+    noteGroup.setAttribute('data-date', dateStr);
+    const dateHeader = document.createElement('h3');
+    dateHeader.textContent = dateStr;
+    noteGroup.appendChild(dateHeader);
+    const ul = document.createElement('ul');
+    achievementsByDate[dateStr].forEach(item => {
+      const li = document.createElement('li');
+      const noteTextSpan = document.createElement('span');
+      noteTextSpan.textContent = item.text;
+      const editBtn = document.createElement('button');
+      editBtn.textContent = 'Edit';
+      editBtn.addEventListener('click', function() {
+        if (editBtn.textContent === 'Edit') {
+          editBtn.textContent = 'Save';
+          const editInput = document.createElement('input');
+          editInput.type = 'text';
+          editInput.value = item.text;
+          li.replaceChild(editInput, noteTextSpan);
+        } else {
+          const editInput = li.querySelector('input');
+          const updatedText = editInput.value.trim() || item.text;
+          item.text = updatedText;
+          editBtn.textContent = 'Edit';
+          noteTextSpan.textContent = updatedText;
+          li.replaceChild(noteTextSpan, editInput);
+          saveAchievements();
+        }
+      });
+      li.appendChild(noteTextSpan);
+      li.appendChild(editBtn);
+      ul.appendChild(li);
+    });
+    noteGroup.appendChild(ul);
+    notesDisplay.appendChild(noteGroup);
+  });
+}
+
   
   // ===============================
   // Initialization
