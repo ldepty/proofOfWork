@@ -476,7 +476,7 @@ function renderAchievements() {
       const noteTextSpan = document.createElement('span');
       noteTextSpan.textContent = item.text;
       const editBtn = document.createElement('button');
-      editBtn.textContent = 'Edit';
+      editBtn.textContent = 'Edit'; 
       editBtn.addEventListener('click', function() {
         if (editBtn.textContent === 'Edit') {
           editBtn.textContent = 'Save';

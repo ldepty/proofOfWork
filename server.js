@@ -84,15 +84,38 @@ app.post('/achievements', (req, res) => {
   const achPath = path.join(__dirname, 'achievements.json');
   console.log('POST /achievements: Received data:', req.body);
 
-  // Overwrite the file with the new array, ignoring the old data
-  writeJSON(achPath, req.body, (err) => {
-    if (err) {
-      console.error('POST /achievements: Error saving achievements', err);
-      res.status(500).send('Error saving achievements');
-    } else {
-      console.log('POST /achievements: Achievements saved successfully.');
-      res.send('Achievements saved');
+  // Read the existing achievements file first
+  fs.readFile(achPath, (readErr, data) => {
+    let existingAchievements = [];
+    if (!readErr) {
+      try {
+        existingAchievements = JSON.parse(data);
+      } catch (parseErr) {
+        console.error('Error parsing existing achievements:', parseErr);
+      }
     }
+    
+    // Merge existing achievements with new achievements from the request.
+    // We assume req.body is an array (the complete set from the client).
+    // To avoid duplicates, merge based on the unique id.
+    const mergedAchievements = [...existingAchievements];
+
+    req.body.forEach(newAch => {
+      // If this achievement doesn't already exist, add it.
+      if (!mergedAchievements.some(existingAch => existingAch.id === newAch.id)) {
+        mergedAchievements.push(newAch);
+      }
+    });
+
+    writeJSON(achPath, mergedAchievements, (writeErr) => {
+      if (writeErr) {
+        console.error('POST /achievements: Error saving achievements', writeErr);
+        res.status(500).send('Error saving achievements');
+      } else {
+        console.log('POST /achievements: Achievements merged and saved successfully.');
+        res.send('Achievements saved');
+      }
+    });
   });
 });
 
