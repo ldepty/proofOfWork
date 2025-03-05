@@ -16,16 +16,18 @@ document.addEventListener('DOMContentLoaded', function() {
     quoteElement.textContent = quotes[randomIndex];
   }
 
-  // Helper functions to get and convert to Sydney time
-function getSydneyDate() {
-  // Returns the current date/time in Sydney as a Date object
-  return new Date(new Date().toLocaleString('en-US', { timeZone: 'Australia/Sydney' }));
-}
+  // ===============================
+  // Helper Functions (Sydney Time)
+  // ===============================
+  function getSydneyDate() {
+    // Returns the current date/time in Sydney as a Date object
+    return new Date(new Date().toLocaleString('en-US', { timeZone: 'Australia/Sydney' }));
+  }
 
-function toSydneyDate(date) {
-  // Convert a given Date object to Sydney time
-  return new Date(date.toLocaleString('en-US', { timeZone: 'Australia/Sydney' }));
-}
+  function toSydneyDate(date) {
+    // Convert a given Date object to Sydney time
+    return new Date(date.toLocaleString('en-US', { timeZone: 'Australia/Sydney' }));
+  }
   
   // ===============================
   // Session Management (Work Hours)
@@ -60,27 +62,46 @@ function toSydneyDate(date) {
   }
   
   // ===============================
-  // Totals & Calendar Functions
+  // Totals & Calendar Functions (Using Luxon)
   // ===============================
   function calculateTotal(start, end) {
     return sessions
-      .filter(session => session.timestamp >= start && session.timestamp < end)
+      .filter(session => {
+        const sessionDate = luxon.DateTime.fromJSDate(session.timestamp).setZone('Australia/Sydney');
+        return sessionDate >= start && sessionDate < end;
+      })
       .reduce((sum, session) => sum + session.hours, 0);
+  }
+  
+  function calculateTotalForDay(date) {
+    // Convert the given date to a Luxon DateTime in Sydney time
+    const sydneyStart = luxon.DateTime.fromJSDate(date).setZone('Australia/Sydney').startOf('day');
+    const sydneyEnd = sydneyStart.plus({ days: 1 });
+    return sessions.filter(session => {
+      const sessionDate = luxon.DateTime.fromJSDate(session.timestamp).setZone('Australia/Sydney');
+      return sessionDate >= sydneyStart && sessionDate < sydneyEnd;
+    }).reduce((sum, session) => sum + session.hours, 0);
+  }
+
+  function calculateCommitsForDay(date) {
+    const sydneyStart = luxon.DateTime.fromJSDate(date).setZone('Australia/Sydney').startOf('day');
+    const sydneyEnd = sydneyStart.plus({ days: 1 });
+    return sessions.filter(session => {
+      const sessionDate = luxon.DateTime.fromJSDate(session.timestamp).setZone('Australia/Sydney');
+      return sessionDate >= sydneyStart && sessionDate < sydneyEnd;
+    }).length;
   }
   
   function calculateTotals() {
     const now = new Date();
-    const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    const endOfDay = new Date(startOfDay.getTime() + 24 * 60 * 60 * 1000);
-    const dayOfWeek = now.getDay();
-    const startOfWeek = new Date(now);
-    startOfWeek.setDate(now.getDate() - (dayOfWeek === 0 ? 6 : dayOfWeek - 1));
-    startOfWeek.setHours(0, 0, 0, 0);
-    const endOfWeek = new Date(startOfWeek.getTime() + 7 * 24 * 60 * 60 * 1000);
-    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-    const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 1);
-    const startOfYear = new Date(now.getFullYear(), 0, 1);
-    const endOfYear = new Date(now.getFullYear() + 1, 0, 1);
+    const startOfDay = luxon.DateTime.fromJSDate(now).setZone('Australia/Sydney').startOf('day');
+    const endOfDay = startOfDay.plus({ days: 1 });
+    const startOfWeek = luxon.DateTime.fromJSDate(now).setZone('Australia/Sydney').startOf('week');
+    const endOfWeek = startOfWeek.plus({ weeks: 1 });
+    const startOfMonth = luxon.DateTime.fromJSDate(now).setZone('Australia/Sydney').startOf('month');
+    const endOfMonth = startOfMonth.plus({ months: 1 });
+    const startOfYear = luxon.DateTime.fromJSDate(now).setZone('Australia/Sydney').startOf('year');
+    const endOfYear = startOfYear.plus({ years: 1 });
   
     const todayTotal = calculateTotal(startOfDay, endOfDay);
     const weekTotal = calculateTotal(startOfWeek, endOfWeek);
@@ -91,30 +112,6 @@ function toSydneyDate(date) {
     return { todayTotal, weekTotal, monthTotal, yearTotal, totalCommits };
   }
   
-  function calculateTotalForDay(date) {
-  // Convert the given date to Sydney time first
-  const sydneyDate = toSydneyDate(date);
-  const startOfDay = new Date(sydneyDate.getFullYear(), sydneyDate.getMonth(), sydneyDate.getDate());
-  const endOfDay = new Date(startOfDay.getTime() + 24 * 60 * 60 * 1000);
-  return calculateTotal(startOfDay, endOfDay);
-}
-  
-  function calculateCommitsForDay(date) {
-    const startOfDay = new Date(date.getFullYear(), date.getMonth(), date.getDate());
-    const endOfDay = new Date(startOfDay.getTime() + 24 * 60 * 60 * 1000);
-    return sessions.filter(session => session.timestamp >= startOfDay && session.timestamp < endOfDay).length;
-  }
-  
-  function formatHoursMinutes(decimalHours) {
-    const hours = Math.floor(decimalHours);
-    let minutes = Math.round((decimalHours - hours) * 60);
-    if (minutes === 60) {
-      minutes = 0;
-      return `${hours + 1}h ${minutes}m`;
-    }
-    return `${hours}h ${minutes}m`;
-  }
-  
   function generateCalendar() {
     const calendarDiv = document.getElementById('calendar');
     if (!calendarDiv) {
@@ -123,10 +120,17 @@ function toSydneyDate(date) {
     }
     calendarDiv.innerHTML = '';
     console.log("Generating calendar...");
-  
-    const now = new Date();
-    const startDate = new Date(now.getFullYear(), 0, 1);
-    const endDate = new Date(now.getFullYear(), 11, 31);
+    
+    let yearToDisplay = new Date().getFullYear();
+    if (sessions.length > 0) {
+      // Use the year from the first session's timestamp
+      yearToDisplay = sessions[0].timestamp.getFullYear();
+    }
+    
+    // Create start/end date in Sydney time
+    const startDate = luxon.DateTime.fromObject({ year: yearToDisplay, month: 1, day: 1 }, { zone: 'Australia/Sydney' }).toJSDate();
+    const endDate = luxon.DateTime.fromObject({ year: yearToDisplay, month: 12, day: 31 }, { zone: 'Australia/Sydney' }).toJSDate();
+    
     const days = Math.ceil((endDate - startDate) / (1000 * 60 * 60 * 24)) + 1;
     console.log("Days in year:", days);
   
@@ -160,11 +164,9 @@ function toSydneyDate(date) {
   
       const tooltip = document.createElement('div');
       tooltip.className = 'tooltip';
-    const formattedDate = new Date(date.toLocaleString('en-US', { timeZone: 'Australia/Sydney' })).toLocaleDateString('en-US', {
-  weekday: 'short',
-  month: 'long',
-  day: 'numeric'
-});
+      const formattedDate = luxon.DateTime.fromJSDate(date)
+        .setZone('Australia/Sydney')
+        .toFormat('ccc LLLL d');
       tooltip.textContent = `${formattedDate}: ${formatHoursMinutes(totalHours)}, ${commitCount} commits`;
   
       dayDiv.appendChild(tooltip);
@@ -173,13 +175,25 @@ function toSydneyDate(date) {
     console.log("Calendar generated with", calendarDiv.children.length, "day elements.");
   }
   
+  function formatHoursMinutes(decimalHours) {
+    const hours = Math.floor(decimalHours);
+    let minutes = Math.round((decimalHours - hours) * 60);
+    if (minutes === 60) {
+      minutes = 0;
+      return `${hours + 1}h ${minutes}m`;
+    }
+    return `${hours}h ${minutes}m`;
+  }
+  
   // ===============================
   // Additional Metrics Helper Functions
   // ===============================
   function calculateBestDay() {
     const dailyTotals = {};
     sessions.forEach(session => {
-      const dateKey = session.timestamp.toDateString();
+      const dateKey = luxon.DateTime.fromJSDate(session.timestamp)
+        .setZone('Australia/Sydney')
+        .toISODate();
       dailyTotals[dateKey] = (dailyTotals[dateKey] || 0) + session.hours;
     });
     let maxHours = 0;
@@ -194,10 +208,14 @@ function toSydneyDate(date) {
   function calculateAvgWorkDay() {
     const dailyTotals = {};
     sessions.forEach(session => {
-      const dayOfWeek = session.timestamp.getDay();
-      // Consider only weekdays (Monday = 1 through Friday = 5)
+      const dayOfWeek = luxon.DateTime.fromJSDate(session.timestamp)
+        .setZone('Australia/Sydney')
+        .weekday;
+      // Monday=1 ... Friday=5
       if (dayOfWeek >= 1 && dayOfWeek <= 5) {
-        const dateKey = session.timestamp.toDateString();
+        const dateKey = luxon.DateTime.fromJSDate(session.timestamp)
+          .setZone('Australia/Sydney')
+          .toISODate();
         dailyTotals[dateKey] = (dailyTotals[dateKey] || 0) + session.hours;
       }
     });
@@ -264,17 +282,11 @@ function toSydneyDate(date) {
     document.getElementById('monthTotal').textContent = formatHoursMinutes(totals.monthTotal);
     document.getElementById('yearTotal').textContent = formatHoursMinutes(totals.yearTotal);
   
-    // Calculate Last Week Total
     const now = new Date();
-    const dayOfWeek = now.getDay();
-    const startOfWeek = new Date(now);
-    startOfWeek.setDate(now.getDate() - (dayOfWeek === 0 ? 6 : dayOfWeek - 1));
-    startOfWeek.setHours(0, 0, 0, 0);
-    const startOfLastWeek = new Date(startOfWeek);
-    startOfLastWeek.setDate(startOfWeek.getDate() - 7);
+    const startOfWeek = luxon.DateTime.fromJSDate(now).setZone('Australia/Sydney').startOf('week');
+    const startOfLastWeek = startOfWeek.minus({ weeks: 1 });
     const lastWeekTotal = calculateTotal(startOfLastWeek, startOfWeek);
   
-    // Calculate Best Day and Average Workday
     const bestDay = calculateBestDay();
     const avgWorkDay = calculateAvgWorkDay();
   
@@ -282,7 +294,6 @@ function toSydneyDate(date) {
     document.getElementById('bestDay').textContent = formatHoursMinutes(bestDay);
     document.getElementById('avgWorkDay').textContent = formatHoursMinutes(avgWorkDay);
   
-    // Update project summary and options list
     const projectTotals = calculateHoursByProject();
     renderProjects(projectTotals);
     updateProjectOptions();
@@ -331,10 +342,9 @@ function toSydneyDate(date) {
     const hoursLogged = stopwatchElapsedTime / (1000 * 60 * 60);
     const dateInputValue = document.getElementById('dateInput').value;
     const projectInputValue = document.getElementById('stopwatchProjectInput')?.value.trim() || 'General';
-   let timestamp = getSydneyDate();
-if (dateInputValue) {
-  // When a date is provided, convert that date to Sydney time.
-  timestamp = toSydneyDate(new Date(dateInputValue));
+    let timestamp = getSydneyDate();
+    if (dateInputValue) {
+      timestamp = toSydneyDate(new Date(dateInputValue));
     }
     const newSession = { 
       timestamp, 
@@ -356,18 +366,15 @@ if (dateInputValue) {
   // ===============================
   // Manual Entry via Modal
   // ===============================
-  // When user clicks the "Manually enter session" link, show the modal
   document.getElementById('manualSessionLink').addEventListener('click', function(e) {
     e.preventDefault();
     document.getElementById('manualModal').style.display = 'block';
   });
   
-  // Close modal when user clicks on the close button (inside modal)
   document.getElementById('closeModal').addEventListener('click', function() {
     document.getElementById('manualModal').style.display = 'none';
   });
   
-  // Manual Entry (Add Button inside modal)
   document.getElementById('addButton').addEventListener('click', () => {
     const dateInputValue = document.getElementById('dateInput').value;
     const projectInputValue = document.getElementById('projectInput')?.value.trim() || 'General';
@@ -383,7 +390,6 @@ if (dateInputValue) {
     sessions.push(newSession);
     saveSessions();
     updateDisplay();
-    // Hide the modal after adding a session
     document.getElementById('manualModal').style.display = 'none';
   });
   
@@ -391,6 +397,7 @@ if (dateInputValue) {
   // Daily Achievements Section
   // ===============================
   let achievements = [];
+  let currentMonthFilter = 'all'; // "all" or "YYYY-MM"
   
   async function loadAchievements() {
     try {
@@ -418,91 +425,225 @@ if (dateInputValue) {
   const noteInput = document.getElementById('noteInput');
   const addNoteButton = document.getElementById('addNoteButton');
   const notesDisplay = document.getElementById('notesDisplay');
+  const achievementsSidebar = document.getElementById('achievementsSidebar');
   
   noteDateInput.value = new Date().toISOString().split('T')[0];
   
-addNoteButton.addEventListener('click', function() {
-  const dateValue = noteDateInput.value.trim();
-  const noteText = noteInput.value.trim();
-  if (!noteText) return;
-  const dateString = dateValue || getSydneyNow().toISODate();
-  const newAchievement = {
-    id: Date.now(),
-    dateString,
-    text: noteText
-  };
-  // Only add if an achievement with this id or text doesn't already exist
-  if (!achievements.some(item => item.id === newAchievement.id)) {
-    achievements.push(newAchievement);
-    saveAchievements();
-    renderAchievements();
-    noteInput.value = '';
+  function getSydneyNow() {
+    return luxon.DateTime.now().setZone('Australia/Sydney');
   }
-});
-
+  
+  addNoteButton.addEventListener('click', function() {
+    const dateValue = noteDateInput.value.trim();
+    const noteText = noteInput.value.trim();
+    if (!noteText) return;
+    const dateString = dateValue || getSydneyNow().toISODate();
+    const newAchievement = {
+      id: Date.now(),
+      dateString,
+      text: noteText
+    };
+    // Avoid duplicates
+    if (!achievements.some(item => item.id === newAchievement.id)) {
+      achievements.push(newAchievement);
+      saveAchievements();
+      renderAchievements();
+      noteInput.value = '';
+    }
+  });
   
   function deduplicateAchievements(achievementsArray) {
-  // Create a map keyed by achievement id to filter out duplicates.
-  const uniqueMap = new Map();
-  achievementsArray.forEach(item => {
-    uniqueMap.set(item.id, item);
-  });
-  return Array.from(uniqueMap.values());
-}
-
-function renderAchievements() {
-  // Remove duplicates before rendering.
-  achievements = deduplicateAchievements(achievements);
-
-  notesDisplay.innerHTML = '';
-  const achievementsByDate = {};
-  achievements.forEach(item => {
-    if (!achievementsByDate[item.dateString]) {
-      achievementsByDate[item.dateString] = [];
+    const uniqueMap = new Map();
+    achievementsArray.forEach(item => {
+      uniqueMap.set(item.id, item);
+    });
+    return Array.from(uniqueMap.values());
+  }
+  
+  // Helper for day headings, e.g. "Monday Feb 24th"
+  function getOrdinalSuffix(n) {
+    if (n % 100 >= 11 && n % 100 <= 13) return 'th';
+    switch (n % 10) {
+      case 1: return 'st';
+      case 2: return 'nd';
+      case 3: return 'rd';
+      default: return 'th';
     }
-    achievementsByDate[item.dateString].push(item);
-  });
-  const sortedDates = Object.keys(achievementsByDate).sort();
-  sortedDates.forEach(dateStr => {
-    const noteGroup = document.createElement('div');
-    noteGroup.classList.add('note-group');
-    noteGroup.setAttribute('data-date', dateStr);
-    const dateHeader = document.createElement('h3');
-    dateHeader.textContent = dateStr;
-    noteGroup.appendChild(dateHeader);
+  }
+  
+  function formatAchievementDate(dateString) {
+    const dt = luxon.DateTime.fromISO(dateString);
+    const day = dt.day;
+    const suffix = getOrdinalSuffix(day);
+    return dt.toFormat('cccc LLL') + ` ${day}${suffix}`;
+  }
+
+  // Build data structure grouped by month-year => day => array of items
+  function groupAchievements(achList) {
+    const grouped = {};
+    achList.forEach(item => {
+      // parse date
+      const dt = luxon.DateTime.fromISO(item.dateString);
+      const monthKey = dt.toFormat('yyyy-MM');  // e.g. "2025-02"
+      const monthLabel = dt.toFormat('LLLL yyyy'); // e.g. "February 2025"
+      const dayKey = dt.toISODate(); // e.g. "2025-02-24"
+
+      if (!grouped[monthKey]) {
+        grouped[monthKey] = {
+          label: monthLabel,
+          days: {}
+        };
+      }
+      if (!grouped[monthKey].days[dayKey]) {
+        grouped[monthKey].days[dayKey] = [];
+      }
+      grouped[monthKey].days[dayKey].push(item);
+    });
+    return grouped;
+  }
+
+  function renderMonthSidebar(grouped) {
+    achievementsSidebar.innerHTML = '';
+
+    // Flatten total achievements count
+    const totalCount = achievements.length;
+    // "All" link at the top
     const ul = document.createElement('ul');
-    achievementsByDate[dateStr].forEach(item => {
-      const li = document.createElement('li');
-      const noteTextSpan = document.createElement('span');
-      noteTextSpan.textContent = item.text;
-      const editBtn = document.createElement('button');
-      editBtn.textContent = 'Edit'; 
-      editBtn.addEventListener('click', function() {
-        if (editBtn.textContent === 'Edit') {
-          editBtn.textContent = 'Save';
-          const editInput = document.createElement('input');
-          editInput.type = 'text';
-          editInput.value = item.text;
-          li.replaceChild(editInput, noteTextSpan);
-        } else {
-          const editInput = li.querySelector('input');
-          const updatedText = editInput.value.trim() || item.text;
-          item.text = updatedText;
-          editBtn.textContent = 'Edit';
-          noteTextSpan.textContent = updatedText;
-          li.replaceChild(noteTextSpan, editInput);
-          saveAchievements();
-        }
+    
+    const allLi = document.createElement('li');
+    const allLink = document.createElement('a');
+    allLink.href = "#";
+    allLink.textContent = `All (${totalCount})`;
+    allLink.addEventListener('click', (e) => {
+      e.preventDefault();
+      currentMonthFilter = 'all';
+      renderAchievements();
+    });
+    allLi.appendChild(allLink);
+    ul.appendChild(allLi);
+
+    // Build an array of month keys
+    let monthKeys = Object.keys(grouped);
+    // Sort them by descending date so newest months come first
+    monthKeys.sort().reverse();
+    
+    monthKeys.forEach(mKey => {
+      // Count how many achievements are in that month
+      let monthCount = 0;
+      Object.values(grouped[mKey].days).forEach(dayArr => {
+        monthCount += dayArr.length;
       });
-      li.appendChild(noteTextSpan);
-      li.appendChild(editBtn);
+      const li = document.createElement('li');
+      const link = document.createElement('a');
+      link.href = "#";
+      link.textContent = `${grouped[mKey].label} (${monthCount})`;
+      link.addEventListener('click', (e) => {
+        e.preventDefault();
+        currentMonthFilter = mKey; // e.g. "2025-02"
+        renderAchievements();
+      });
+      li.appendChild(link);
       ul.appendChild(li);
     });
-    noteGroup.appendChild(ul);
-    notesDisplay.appendChild(noteGroup);
-  });
-}
 
+    achievementsSidebar.appendChild(ul);
+  }
+
+  function renderAchievementsContent(grouped) {
+    notesDisplay.innerHTML = '';
+    // If user selected a single month, only render that month
+    if (currentMonthFilter !== 'all') {
+      // Render just the single month
+      const single = {};
+      single[currentMonthFilter] = grouped[currentMonthFilter];
+      renderMonthSection(single);
+    } else {
+      // Render all months in descending order
+      renderMonthSection(grouped);
+    }
+  }
+
+  // Actually create DOM elements for each month + day
+  function renderMonthSection(grouped) {
+    const monthKeys = Object.keys(grouped).sort().reverse(); // descending
+    monthKeys.forEach(mKey => {
+      const monthObj = grouped[mKey];
+      const monthSection = document.createElement('div');
+      monthSection.classList.add('month-section');
+
+      // Month heading, e.g. "February 2025"
+      const monthHeading = document.createElement('h2');
+      monthHeading.textContent = monthObj.label;
+      monthSection.appendChild(monthHeading);
+
+      // Sort day keys in descending order
+      const dayKeys = Object.keys(monthObj.days).sort().reverse();
+      dayKeys.forEach(dayKey => {
+        const dayArr = monthObj.days[dayKey];
+        // Sort each day's achievements by ID descending (so newer notes come first)
+        dayArr.sort((a, b) => (b.id - a.id));
+
+        const noteDayDiv = document.createElement('div');
+        noteDayDiv.classList.add('note-day');
+        // e.g. "Monday Feb 24th"
+        const dayHeading = document.createElement('h3');
+        dayHeading.textContent = formatAchievementDate(dayKey);
+        noteDayDiv.appendChild(dayHeading);
+
+        const ul = document.createElement('ul');
+        dayArr.forEach(item => {
+          const li = document.createElement('li');
+          // The text
+          const noteSpan = document.createElement('span');
+          noteSpan.textContent = item.text;
+
+          // Edit button
+          const editBtn = document.createElement('button');
+          editBtn.classList.add('edit-button');
+          editBtn.textContent = 'Edit';
+          editBtn.addEventListener('click', function() {
+            if (editBtn.textContent === 'Edit') {
+              editBtn.textContent = 'Save';
+              const editInput = document.createElement('input');
+              editInput.type = 'text';
+              editInput.value = item.text;
+              li.replaceChild(editInput, noteSpan);
+            } else {
+              const editInput = li.querySelector('input');
+              const updatedText = editInput.value.trim() || item.text;
+              item.text = updatedText;
+              editBtn.textContent = 'Edit';
+              noteSpan.textContent = updatedText;
+              li.replaceChild(noteSpan, editInput);
+              saveAchievements();
+            }
+          });
+
+          li.appendChild(noteSpan);
+          li.appendChild(editBtn);
+          ul.appendChild(li);
+        });
+        noteDayDiv.appendChild(ul);
+        monthSection.appendChild(noteDayDiv);
+      });
+      notesDisplay.appendChild(monthSection);
+    });
+  }
+
+  // Master function to sort achievements descending, group them, build sidebar, etc.
+  function renderAchievements() {
+    achievements = deduplicateAchievements(achievements);
+    // Sort achievements by date descending
+    achievements.sort((a, b) => {
+      // parse dateStrings
+      const dtA = luxon.DateTime.fromISO(a.dateString);
+      const dtB = luxon.DateTime.fromISO(b.dateString);
+      return dtB.toMillis() - dtA.toMillis();
+    });
+    const grouped = groupAchievements(achievements);
+    renderMonthSidebar(grouped);
+    renderAchievementsContent(grouped);
+  }
   
   // ===============================
   // Initialization

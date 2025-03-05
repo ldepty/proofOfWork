@@ -4,6 +4,7 @@
   <meta charset="UTF-8">
   <title>Work Hours Tracker</title>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/all.min.css">
+  <!-- Luxon for date/time handling -->
   <script src="https://cdn.jsdelivr.net/npm/luxon@3/build/global/luxon.min.js"></script>
   <style>
     /* Global Styles */
@@ -23,6 +24,7 @@
       margin-bottom: 20px;
       text-align: center;
     }
+
     /* Stopwatch Section */
     .stopwatch-section {
       text-align: center;
@@ -32,38 +34,18 @@
       font-size: 5em;
       margin-bottom: 10px;
     }
-    /* Stats Section */
-    .stats {
-      display: grid;
-      grid-template-columns: repeat(4, 1fr);
-      gap: 20px;
-      margin-top: 20px;
-      text-align: center;
-    }
-    .stat i {
-      font-size: 24px;
-      color: #9370DB;
-      margin-bottom: 10px;
-    }
-    .stat p {
-      font-size: 24px;
-      font-weight: bold;
-      margin: 0;
-    }
-    .stat span {
-      font-size: 16px;
-    }
+
     /* Calendar Styles */
-   #calendar {
-  display: grid;
-  /* Originally: grid-template-rows: repeat(7, 15px); */
-  /* Now add an extra row at the top for months: */
-  grid-template-rows: 15px repeat(7, 15px);
-  grid-auto-flow: column;
-  gap: 3px;
-  margin-bottom: 20px;
-  position: relative;
-}
+    #calendar {
+      display: grid;
+      /* Originally: grid-template-rows: repeat(7, 15px); */
+      /* Now add an extra row at the top for months: */
+      grid-template-rows: 15px repeat(7, 15px);
+      grid-auto-flow: column;
+      gap: 3px;
+      margin-bottom: 20px;
+      position: relative;
+    }
     .day {
       width: 15px;
       height: 15px;
@@ -98,20 +80,120 @@
     .day:hover .tooltip {
       display: block;
     }
+
+    .month-label {
+      font-size: 10px;
+      color: #aaa;        
+      text-align: center;
+      white-space: nowrap;
+    }
+
+    /* Impact Legend */
+    .impact-legend {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 4px;
+      margin-bottom: 30px; /* Extra spacing before Stats */
+    }
+    .legend-label {
+      font-size: 14px;
+      opacity: 0.8;
+    }
+    .impact-box {
+      width: 15px;
+      height: 15px;
+      border-radius: 4px;
+      position: relative;
+      cursor: pointer;
+    }
+    .impact-box.zero {
+      background-color: #555;
+    }
+    .impact-box.low {
+      background-color: #CCA4F9;
+    }
+    .impact-box.medium {
+      background-color: #B28AC9;
+    }
+    .impact-box.three-four {
+      background-color: #9370DB;
+    }
+    .impact-box.high {
+      background-color: #7700FF;
+    }
+    .impact-box:hover::after {
+      content: attr(data-tooltip);
+      position: absolute;
+      top: -30px;
+      left: 50%;
+      transform: translateX(-50%);
+      background-color: #333;
+      color: #fff;
+      padding: 3px 6px;
+      border-radius: 3px;
+      white-space: nowrap;
+      font-size: 0.8rem;
+      pointer-events: none;
+      z-index: 10;
+    }
+
+    /* Stats Section */
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 20px;
+      text-align: center;
+    }
+    .stat {
+      background-color: #1a1a1a;
+      border: 1px solid #333;
+      border-radius: 8px;
+      padding: 1rem;
+    }
+    .stat i {
+      font-size: 24px;
+      color: #9370DB;
+      margin-bottom: 10px;
+    }
+    .stat p {
+      font-size: 24px;
+      font-weight: bold;
+      margin: 0;
+    }
+    .stat span {
+      font-size: 16px;
+    }
+
     /* Projects Section */
     .projects-section {
       margin-top: 20px;
       text-align: left;
-      background-color: #212121;
-      padding: 20px;
-      border-radius: 3px;
     }
-    .month-label {
-  font-size: 10px;
-  color: #aaa;        /* or whatever color you prefer */
-  text-align: center;
-  white-space: nowrap; /* so short month names stay on one line */
-}
+    /* 4-column grid, matching Stats layout */
+    .projects-list {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 20px;
+      text-align: center;
+      margin-top: 20px;
+    }
+    .project-box {
+      background-color: #1a1a1a;
+      border: 1px solid #333;
+      border-radius: 8px;
+      padding: 1rem;
+    }
+    .project-box h3 {
+      margin: 0 0 0.5rem;
+      font-size: 18px;
+      color: #9370DB;
+    }
+    .project-box p {
+      margin: 0;
+      font-size: 16px;
+    }
+
     /* Modal Styles */
     .modal {
       display: none; /* Hidden by default */
@@ -139,6 +221,7 @@
       font-weight: bold;
       cursor: pointer;
     }
+
     /* Input Section Styling */
     .input-section label {
       margin-right: 10px;
@@ -163,6 +246,7 @@
     .input-section button:hover {
       background-color: #7B68EE;
     }
+
     /* Link Styling */
     a {
       color: #9370DB;
@@ -172,6 +256,7 @@
     a:hover {
       text-decoration: underline;
     }
+
     /* =========================
        START BUTTON (PURPLE)
        ========================= */
@@ -188,7 +273,6 @@
       overflow: hidden;
       transition: transform 0.3s ease, box-shadow 0.3s ease;
     }
-    /* Sparkles (shared logic) */
     #startButton::before,
     #startButton::after {
       content: '';
@@ -200,7 +284,6 @@
       opacity: 0;
       animation: sparkle 2s infinite ease-in-out;
     }
-    /* Position sparkles differently */
     #startButton::before {
       top: 20%;
       left: 20%;
@@ -210,7 +293,6 @@
       right: 20%;
       animation-delay: 1s;
     }
-    /* Hover & active states */
     #startButton:hover {
       transform: translateY(-3px);
       box-shadow: 0 8px 20px rgba(78,0,224,0.4);
@@ -219,6 +301,7 @@
       transform: translateY(1px);
       box-shadow: none;
     }
+
     /* =========================
        STOP BUTTON (RED)
        ========================= */
@@ -263,6 +346,7 @@
       transform: translateY(1px);
       box-shadow: none;
     }
+
     /* =========================
        LOG MINUTES BUTTON (LIGHT)
        ========================= */
@@ -307,47 +391,8 @@
       transform: translateY(1px);
       box-shadow: none;
     }
-    /* =========================
-       SHARED SPARKLE ANIMATION
-       ========================= */
-    @keyframes sparkle {
-      0%, 100% {
-        transform: scale(0);
-        opacity: 0;
-      }
-      50% {
-        transform: scale(1.4);
-        opacity: 1;
-      }
-    }
-    /* Project box container */
-    .stopwatchProjectInput {
-      display: flex;
-      flex-direction: column; 
-      align-items: flex-start;
-    }
-    /* Label for Project */
-    .stopwatchProjectInput label {
-      font-weight: bold;
-      margin-bottom: 0.5rem;
-    }
-    /* Input styled to match the Log Session button */
-    .stopwatchProjectInput input[type="text"] {
-      border: none;
-      border-radius: 9999px;
-      padding: 0.5rem 1.5rem;
-      font-size: 1rem;
-      background-color: #b8b8b8; /* match log session gray */
-      color: #000;              /* ensure text is readable */
-      width: 200px;             /* adjust as needed */
-    }
-    /* Optional: add a bit of extra spacing around the entire project box */
-    .project-box {
-      margin-top: 1rem;
-    }
 
-    /* ========== Achievements Section Styles ========== */
-    /* Container "box" for all achievements */
+    /* Achievements Container */
     .achievements-container {
       background-color: #1a1a1a;
       border: 1px solid #333;
@@ -355,7 +400,6 @@
       padding: 1rem;
       margin-top: 2rem; /* spacing above achievements section */
     }
-    /* Full-width black input & textarea with white text */
     .achievements-container input[type="date"],
     .achievements-container textarea {
       width: 100%;
@@ -367,80 +411,63 @@
       box-sizing: border-box;
       margin-bottom: 1rem;
     }
-    /* Where each date’s notes will appear */
+
+    /* Container for sidebar + main achievements */
+    .achievements-layout {
+      display: flex;
+      gap: 1rem;
+    }
+    .achievements-sidebar {
+      width: 200px;
+    }
+    .achievements-sidebar ul {
+      list-style: none;
+      padding-left: 0;
+    }
+    .achievements-sidebar li {
+      margin-bottom: 6px;
+    }
+
+    /* Main Achievements Content */
     .notes-display {
+      flex: 1;
       display: flex;
       flex-direction: column;
-      gap: 1rem; /* spacing between date boxes */
+      gap: 1rem; /* spacing between months */
     }
-    /* Individual “date box” */
+    .month-section {
+      margin-bottom: 1rem;
+    }
+    .month-section h2 {
+      margin: 0 0 0.5rem 0;
+      font-size: 1.5rem;
+    }
     .note-day {
       background-color: #111;
       border: 1px solid #333;
       border-radius: 6px;
       padding: 1rem;
+      margin-bottom: 0.5rem;
     }
     .note-day h3 {
       margin-top: 0;
       margin-bottom: 0.5rem;
     }
-    /* Legend container styles */
-.impact-legend {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 4px;
-  margin-bottom: 20px; /* space below the legend */
-}
-
-/* Optional label styling */
-.legend-label {
-  font-size: 14px;
-  opacity: 0.8;
-}
-
-/* Each color box */
-.impact-box {
-  width: 15px;
-  height: 15px;
-  border-radius: 4px;
-  position: relative;
-  cursor: pointer;
-}
-
-/* Reuse your existing color classes */
-.impact-box.zero {
-  background-color: #555; /* matches .day.zero */
-}
-.impact-box.low {
-  background-color: #CCA4F9; /* matches .day.low */
-}
-.impact-box.medium {
-  background-color: #B28AC9; /* matches .day.medium */
-}
-.impact-box.three-four {
-  background-color: #9370DB; /* matches .day.three-four */
-}
-.impact-box.high {
-  background-color: #7700FF; /* matches .day.high */
-}
-
-/* Tooltip styling on hover */
-.impact-box:hover::after {
-  content: attr(data-tooltip); /* read from data-tooltip attribute */
-  position: absolute;
-  top: -30px;   /* adjust to position the tooltip above the square */
-  left: 50%;
-  transform: translateX(-50%);
-  background-color: #333;
-  color: #fff;
-  padding: 3px 6px;
-  border-radius: 3px;
-  white-space: nowrap;
-  font-size: 0.8rem;
-  pointer-events: none;
-  z-index: 10;
-}
+    .note-day ul {
+      list-style: none;
+      padding-left: 0;
+    }
+    .note-day li {
+      margin-bottom: 0.5rem;
+    }
+    .edit-button {
+      background: none;
+      border: none;
+      color: #fff;
+      text-decoration: underline;
+      cursor: pointer;
+      margin-left: 1rem;
+    }
   </style>
 </head>
 <body>
@@ -470,61 +497,63 @@
       <a href="#" id="manualSessionLink">Manually enter session</a>
     </p>
 
-
-    
-    <!-- Calendar and Stats -->
+    <!-- Calendar -->
     <div id="calendar"></div>
+
+    <!-- Impact Legend -->
     <div class="impact-legend">
-  <span class="legend-label">Low Impact</span>
-  
-  <!-- Each square references your existing color classes -->
-  <div class="impact-box zero" data-tooltip="0 hours"></div>
-  <div class="impact-box low" data-tooltip="1-2 hours"></div>
-  <div class="impact-box medium" data-tooltip="2-3 hours"></div>
-  <div class="impact-box three-four" data-tooltip="3-4 hours"></div>
-  <div class="impact-box high" data-tooltip="4+ hours"></div>
-  
-  <span class="legend-label">High Impact</span>
-</div>
+      <span class="legend-label">Low Impact</span>
+      <div class="impact-box zero" data-tooltip="0 hours"></div>
+      <div class="impact-box low" data-tooltip="1-2 hours"></div>
+      <div class="impact-box medium" data-tooltip="2-3 hours"></div>
+      <div class="impact-box three-four" data-tooltip="3-4 hours"></div>
+      <div class="impact-box high" data-tooltip="4+ hours"></div>
+      <span class="legend-label">High Impact</span>
+    </div>
+
+    <!-- Stats Header -->
+    <h2 style="text-align: center;">Stats</h2>
+
+    <!-- Stats Grid -->
     <div class="stats">
       <div class="stat">
         <i class="fas fa-code-branch"></i>
-        <p id="totalCommits">0</p>
+        <p id="totalCommits">20</p>
         <span>Total Commits</span>
       </div>
       <div class="stat">
         <i class="fas fa-calendar-day"></i>
-        <p id="todayTotal">0</p>
+        <p id="todayTotal">0h 0m</p>
         <span>Today</span>
       </div>
       <div class="stat">
         <i class="fas fa-calendar-week"></i>
-        <p id="weekTotal">0</p>
+        <p id="weekTotal">11h 56m</p>
         <span>This Week</span>
       </div>
       <div class="stat">
         <i class="fas fa-history"></i>
-        <p id="lastWeekTotal">0</p>
+        <p id="lastWeekTotal">9h 2m</p>
         <span>Last Week</span>
       </div>
       <div class="stat">
         <i class="fas fa-trophy"></i>
-        <p id="bestDay">0</p>
+        <p id="bestDay">4h 47m</p>
         <span>Best Day</span>
       </div>
       <div class="stat">
         <i class="fas fa-chart-line"></i>
-        <p id="avgWorkDay">0</p>
+        <p id="avgWorkDay">3h 0m</p>
         <span>Avg/Workday</span>
       </div>
       <div class="stat">
         <i class="fas fa-calendar-alt"></i>
-        <p id="monthTotal">0</p>
+        <p id="monthTotal">11h 56m</p>
         <span>This Month</span>
       </div>
       <div class="stat">
         <i class="fas fa-calendar"></i>
-        <p id="yearTotal">0</p>
+        <p id="yearTotal">29h 58m</p>
         <span>This Year</span>
       </div>
     </div>
@@ -535,7 +564,9 @@
     <!-- Projects Summary -->
     <div class="projects-section">
       <h2>Hours by Project</h2>
-      <div id="projectsDisplay"></div>
+      <div class="projects-list" id="projectsDisplay">
+        <div class="project-box"> </div>        
+      </div>
     </div>
     
     <!-- Modal for Manual Session Entry -->
@@ -569,11 +600,17 @@
       <textarea id="noteInput" placeholder="Type your achievement here..."></textarea>
       <button id="addNoteButton">Add Note</button>
       
-      <!-- Display area for notes -->
-      <div id="notesDisplay" class="notes-display"></div>
+      <div class="achievements-layout">
+        <!-- Sidebar for monthly filtering -->
+        <div id="achievementsSidebar" class="achievements-sidebar"></div>
+        
+        <!-- Main achievements area -->
+        <div id="notesDisplay" class="notes-display"></div>
+      </div>
     </div>
   </div>
   
+  <!-- Our main script -->
   <script src="app.js"></script>
 </body>
 </html>
