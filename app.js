@@ -3,7 +3,7 @@ document.addEventListener('DOMContentLoaded', function() {
   // Inspirational Quotes Section
   // ===============================
   const quotes = [
-    "The only place where success comes before work is in the dictionary. — Vidal Sassoon",
+    " The only place where success comes before work is in the dictionary. — Vidal Sassoon",
     "There are no secrets to success. It is the result of preparation, hard work, and learning from failure. — Colin Powell",
     "I'm a greater believer in luck, and I find the harder I work, the more I have of it. — Thomas Jefferson",
     "Success is no accident. It is hard work, perseverance, learning, studying, sacrifice and, most of all, love of what you are doing or learning to do. — Pelé",
