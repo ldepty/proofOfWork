@@ -989,46 +989,38 @@
 
     .month-row {
       display: flex;
-      align-items: center;
-      padding: 8px;
+      align-items: flex-start;
+      padding: 12px 0;
       border-bottom: 1px solid #333;
       gap: 10px;
-      max-width: 100%;
     }
 
     .month-name {
+      color: #fff;
+      font-size: 14px;
+      font-weight: 500;
       width: 100px;
       flex-shrink: 0;
-      color: white;
     }
 
     .month-project {
       flex: 1;
-      min-width: 0; /* Allow flex item to shrink below content size */
-      padding: 0 10px;
+      min-width: 0;
+      padding: 0 20px;
       display: flex;
       flex-wrap: wrap;
       gap: 8px;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
+      color: #666;
+      font-size: 14px;
     }
 
     .month-project span {
       display: inline-flex;
       align-items: center;
-      gap: 4px;
-      max-width: 100%;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-    }
-
-    .month-hours {
-      width: 80px;
-      flex-shrink: 0;
-      text-align: right;
-      color: white;
+      gap: 8px;
+      white-space: normal;
+      word-wrap: break-word;
+      overflow-wrap: break-word;
     }
 
     .project-color-dot {
@@ -1036,6 +1028,15 @@
       height: 8px;
       border-radius: 50%;
       display: inline-block;
+      flex-shrink: 0;
+    }
+
+    .month-hours {
+      color: #fff;
+      font-size: 14px;
+      font-weight: 500;
+      width: 80px;
+      text-align: right;
       flex-shrink: 0;
     }
   </style>

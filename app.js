@@ -810,7 +810,7 @@ document.addEventListener('DOMContentLoaded', function() {
       
       // Only add months that have hours logged
       if (monthHours > 0) {
-        // Get unique projects for the month with their colors (no duplicates)
+        // Get unique projects for the month
         const monthProjects = [...new Set(sessions
           .filter(session => {
             const sessionTime = session.timestamp;
@@ -850,7 +850,7 @@ document.addEventListener('DOMContentLoaded', function() {
             <span class="project-color-dot" style="background-color: ${project.color}"></span>
             ${project.name}
           </span>
-        `).join(', ');
+        `).join('');
       } else {
         projectName.textContent = '--------';
       }
