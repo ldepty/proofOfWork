@@ -232,6 +232,10 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     calendarDiv.appendChild(monthLabelsContainer);
 
+    // Create calendar grid
+    const calendarGrid = document.createElement('div');
+    calendarGrid.className = 'calendar-grid';
+
     // Generate array of dates for the year
     const dates = [];
     let currentDate = startDate;
@@ -239,10 +243,6 @@ document.addEventListener('DOMContentLoaded', function() {
       dates.push(currentDate);
       currentDate = currentDate.plus({ days: 1 });
     }
-
-    // Create calendar grid
-    const calendarGrid = document.createElement('div');
-    calendarGrid.className = 'calendar-grid';
 
     // Add days to grid
     dates.forEach(date => {
@@ -257,14 +257,17 @@ document.addEventListener('DOMContentLoaded', function() {
         dayElement.classList.add('zero');
       } else if (totalHours <= 2) {
         dayElement.classList.add('low');
-      } else if (totalHours <= 4) {
+      } else if (totalHours <= 3) {
         dayElement.classList.add('medium');
-      } else if (totalHours <= 6) {
+      } else if (totalHours <= 4) {
         dayElement.classList.add('three-four');
       } else {
         dayElement.classList.add('high');
       }
 
+      // Get projects for this day
+      const dayProjects = getDayProjects(date);
+      
       // Create tooltip
       const tooltip = document.createElement('div');
       tooltip.className = 'tooltip';
@@ -274,8 +277,18 @@ document.addEventListener('DOMContentLoaded', function() {
         day: 'numeric',
         year: 'numeric'
       });
-      const formattedHours = totalHours > 0 ? `${totalHours.toFixed(1)} hours` : 'No hours';
-      tooltip.textContent = `${formattedDate}\n${formattedHours}`;
+      
+      let tooltipContent = `${formattedDate}\n`;
+      if (totalHours > 0) {
+        tooltipContent += `${totalHours.toFixed(1)} hours\n`;
+        if (dayProjects.length > 0) {
+          tooltipContent += dayProjects.join(', ');
+        }
+      } else {
+        tooltipContent += 'No hours';
+      }
+      
+      tooltip.textContent = tooltipContent;
       dayElement.appendChild(tooltip);
 
       calendarGrid.appendChild(dayElement);
@@ -485,41 +498,45 @@ document.addEventListener('DOMContentLoaded', function() {
   });
 
   // Update project display function to use project colors
-  function updateProjectsDisplay() {
+  function updateProjects() {
     const projectsContainer = document.getElementById('projects');
-    if (!projectsContainer) {
-      console.error('Projects container not found');
-      return;
-    }
+    projectsContainer.innerHTML = '<h2>Projects</h2>';  // Add the title
     
-    // Clear existing projects
-    projectsContainer.innerHTML = '';
-    
-    // Calculate total hours
-    const totalHours = sessions.reduce((sum, session) => sum + session.hours, 0);
-    
-    // Get project hours
-    const projectHours = calculateHoursByProject();
-    
-    // Create project bars
-    Object.entries(projectHours).forEach(([project, hours]) => {
-      const percentage = (hours / totalHours) * 100;
-      const projectBar = document.createElement('div');
-      projectBar.className = 'project-bar';
+    // Get total hours across all projects for percentage calculation
+    const totalHours = Object.values(projects).reduce((sum, project) => {
+      const projectHours = sessions
+        .filter(session => session.project === project.name)
+        .reduce((total, session) => total + session.hours, 0);
+      return sum + projectHours;
+    }, 0);
+
+    // Create and append project bars
+    projects.forEach(project => {
+      const projectHours = sessions
+        .filter(session => session.project === project.name)
+        .reduce((sum, session) => sum + session.hours, 0);
       
-      // Format hours to one decimal place
-      const formattedHours = hours.toFixed(1);
-      
-      projectBar.innerHTML = `
-        <div class="project-header">
-          <span class="project-name">${project}</span>
-          <span class="project-hours">${formattedHours}h</span>
-        </div>
-        <div class="bar-container">
-          <div class="bar-fill" style="width: ${percentage}%"></div>
-        </div>
-      `;
-      projectsContainer.appendChild(projectBar);
+      if (projectHours > 0) {
+        const percentage = (projectHours / totalHours) * 100;
+        
+        const projectBar = document.createElement('div');
+        projectBar.className = 'project-bar';
+        
+        projectBar.innerHTML = `
+          <div class="project-header">
+            <div class="project-name">
+              <span class="project-color-dot" style="background-color: ${project.color}"></span>
+              ${project.name}
+            </div>
+            <div class="project-hours">${formatHoursMinutes(projectHours)}</div>
+          </div>
+          <div class="bar-container">
+            <div class="bar-fill" style="width: ${percentage}%; background-color: ${project.color}"></div>
+          </div>
+        `;
+        
+        projectsContainer.appendChild(projectBar);
+      }
     });
   }
 
@@ -671,7 +688,7 @@ document.addEventListener('DOMContentLoaded', function() {
     generateCalendar();
 
     // Update project bars
-    updateProjectsDisplay();
+    updateProjects();
 
     // Update last 7 days and year overview
     updateLast7Days();
@@ -701,13 +718,19 @@ document.addEventListener('DOMContentLoaded', function() {
         })
         .reduce((sum, session) => sum + session.hours, 0);
       
-      // Get unique projects for this day
+      // Get unique projects for this day with their colors
       const dayProjects = [...new Set(sessions
         .filter(session => {
           const sessionTime = luxon.DateTime.fromISO(session.timestamp, { zone: 'Australia/Sydney' });
           return sessionTime >= dayStart && sessionTime <= dayEnd;
         })
-        .map(session => session.project)
+        .map(session => {
+          const projectData = projects.find(p => p.name === session.project);
+          return {
+            name: session.project,
+            color: projectData ? projectData.color : '#9370DB'
+          };
+        })
       )];
       
       days.push({
@@ -724,12 +747,20 @@ document.addEventListener('DOMContentLoaded', function() {
       
       const dayName = document.createElement('div');
       dayName.className = 'day-name';
-      // Use "Today" for current day, actual day name for others
       dayName.textContent = index === 0 ? 'Today' : day.date.toFormat('cccc');
       
       const projectName = document.createElement('div');
       projectName.className = 'day-project';
-      projectName.textContent = day.projects.join(', ') || '--------';
+      if (day.projects.length > 0) {
+        projectName.innerHTML = day.projects.map(project => `
+          <span>
+            <span class="project-color-dot" style="background-color: ${project.color}"></span>
+            ${project.name}
+          </span>
+        `).join(', ');
+      } else {
+        projectName.textContent = '--------';
+      }
       
       const hoursDisplay = document.createElement('div');
       hoursDisplay.className = 'day-hours';
@@ -772,19 +803,27 @@ document.addEventListener('DOMContentLoaded', function() {
       // Calculate total hours for the month
       const monthHours = sessions
         .filter(session => {
-          return session.timestamp >= monthStart && session.timestamp <= monthEnd;
+          const sessionTime = session.timestamp;
+          return sessionTime >= monthStart && sessionTime <= monthEnd;
         })
         .reduce((sum, session) => sum + session.hours, 0);
       
       // Only add months that have hours logged
       if (monthHours > 0) {
-        // Get unique projects for the month
+        // Get unique projects for the month with their colors (no duplicates)
         const monthProjects = [...new Set(sessions
           .filter(session => {
-            return session.timestamp >= monthStart && session.timestamp <= monthEnd;
+            const sessionTime = session.timestamp;
+            return sessionTime >= monthStart && sessionTime <= monthEnd;
           })
           .map(session => session.project)
-        )];
+        )].map(projectName => {
+          const projectData = projects.find(p => p.name === projectName);
+          return {
+            name: projectName,
+            color: projectData ? projectData.color : '#9370DB'
+          };
+        });
         
         months.push({
           name: date.toFormat('MMMM'),
@@ -805,7 +844,16 @@ document.addEventListener('DOMContentLoaded', function() {
       
       const projectName = document.createElement('div');
       projectName.className = 'month-project';
-      projectName.textContent = month.projects.join(', ');
+      if (month.projects.length > 0) {
+        projectName.innerHTML = month.projects.map(project => `
+          <span>
+            <span class="project-color-dot" style="background-color: ${project.color}"></span>
+            ${project.name}
+          </span>
+        `).join(', ');
+      } else {
+        projectName.textContent = '--------';
+      }
       
       const hoursDisplay = document.createElement('div');
       hoursDisplay.className = 'month-hours';
