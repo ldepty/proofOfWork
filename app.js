@@ -40,6 +40,7 @@ document.addEventListener('DOMContentLoaded', function() {
       }));
 
       console.log("Sessions loaded successfully:", sessions.length);
+      updateProjectOptions(); // Update project options after loading sessions
       updateAllDisplays();
     } catch (err) {
       console.error("Detailed error loading sessions:", {
@@ -393,6 +394,7 @@ document.addEventListener('DOMContentLoaded', function() {
     { id: 2, name: 'general', color: '#4ECDC4' },
     { id: 3, name: 'The Pope Video', color: '#45B7D1' }
   ];
+
   const defaultColors = [
     '#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FFEEAD', '#D4A5A5',
     '#9B59B6', '#3498DB', '#2ECC71', '#F1C40F', '#E67E22', '#E74C3C'
@@ -401,16 +403,18 @@ document.addEventListener('DOMContentLoaded', function() {
   async function loadProjects() {
     try {
       const response = await fetch('http://localhost:3000/projects.json');
-      projects = await response.json();
+      if (!response.ok) {
+        throw new Error('Failed to load projects');
+      }
+      const loadedProjects = await response.json();
+      if (Array.isArray(loadedProjects) && loadedProjects.length > 0) {
+        projects = loadedProjects;
+      }
       updateProjectOptions();
     } catch (err) {
       console.error("Error loading projects:", err);
-      // Initialize with default projects if file doesn't exist
-      projects = [
-        { id: 1, name: 'Assassination of Mahmoud al-Mabhouh (research)', color: '#FF6B6B' },
-        { id: 2, name: 'general', color: '#4ECDC4' },
-        { id: 3, name: 'The Pope Video', color: '#45B7D1' }
-      ];
+      // Keep default projects if loading fails
+      updateProjectOptions();
     }
   }
 
@@ -541,19 +545,23 @@ document.addEventListener('DOMContentLoaded', function() {
   // Update the project options list with colors
   function updateProjectOptions() {
     const projectSet = new Set();
+    
+    // Add all existing project names
+    projects.forEach(project => {
+      projectSet.add(project.name);
+    });
+    
+    // Add all project names from sessions
     sessions.forEach(session => {
       if (session.project) {
         projectSet.add(session.project);
       }
     });
-    projects.forEach(project => {
-      projectSet.add(project.name);
-    });
     
     const dataList = document.getElementById('projectList');
     if (dataList) {
       dataList.innerHTML = '';
-      projectSet.forEach(projectName => {
+      Array.from(projectSet).sort().forEach(projectName => {
         const option = document.createElement('option');
         option.value = projectName;
         dataList.appendChild(option);
@@ -582,20 +590,43 @@ document.addEventListener('DOMContentLoaded', function() {
     let streak = 0;
     
     // Check if there's work logged today
-    const todayHours = calculateTotalForDay(currentDate.toJSDate());
+    const todayHours = sessions
+      .filter(session => {
+        const sessionDate = session.timestamp;
+        return sessionDate >= currentDate.startOf('day') && 
+               sessionDate <= currentDate.endOf('day');
+      })
+      .reduce((sum, session) => sum + session.hours, 0);
+
+    // If no work today, check yesterday
     if (todayHours === 0) {
-      // If no work today, check if there was work yesterday
-      currentDate = currentDate.minus({ days: 1 });
-      const yesterdayHours = calculateTotalForDay(currentDate.toJSDate());
+      const yesterday = currentDate.minus({ days: 1 });
+      const yesterdayHours = sessions
+        .filter(session => {
+          const sessionDate = session.timestamp;
+          return sessionDate >= yesterday.startOf('day') && 
+                 sessionDate <= yesterday.endOf('day');
+        })
+        .reduce((sum, session) => sum + session.hours, 0);
+
       if (yesterdayHours === 0) {
-        return 0; // Break in streak
+        return 0; // Break in streak if no work yesterday either
       }
+      // Start counting from yesterday if we have work then
+      currentDate = yesterday;
     }
     
     // Count backwards from current date
     while (true) {
-      const dayTotal = calculateTotalForDay(currentDate.toJSDate());
-      if (dayTotal === 0) break;
+      const dayHours = sessions
+        .filter(session => {
+          const sessionDate = session.timestamp;
+          return sessionDate >= currentDate.startOf('day') && 
+                 sessionDate <= currentDate.endOf('day');
+        })
+        .reduce((sum, session) => sum + session.hours, 0);
+
+      if (dayHours === 0) break;
       streak++;
       currentDate = currentDate.minus({ days: 1 });
     }
@@ -1277,8 +1308,10 @@ document.addEventListener('DOMContentLoaded', function() {
   // ===============================
   // Initialization
   // ===============================
-  loadSessions();
-  loadAchievements();
-  loadProjects();
-  document.getElementById('dateInput').value = new Date().toISOString().split('T')[0];
+  // Load projects first, then sessions and achievements
+  loadProjects().then(() => {
+    loadSessions();
+    loadAchievements();
+    document.getElementById('dateInput').value = new Date().toISOString().split('T')[0];
+  });
 });

@@ -20,6 +20,36 @@
       margin: 0 auto;
     }
 
+    /* Add flex container for projects and timer */
+    .flex-container {
+      display: flex;
+      gap: 20px;
+      --margin-bottom: 40px;
+    }
+
+    .timer-section {
+      flex: 1;
+      text-align: center;
+      background-color: #1a1a1a;
+      border: 1px solid #333;
+      border-radius: 8px;
+      padding: 30px;
+      height: 300px;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+    }
+
+    .projects-section {
+      flex: 1;
+      background-color: #1a1a1a;
+      border: 1px solid #333;
+      border-radius: 8px;
+      padding: 30px;
+      height: 300px;
+      overflow-y: auto;
+    }
+
     /* Stopwatch Section */
     .stopwatch-section {
       text-align: center;
@@ -323,11 +353,13 @@
 
     /* Projects Section */
     .projects-section {
-      margin-top: 40px;
+      --margin-top: 40px;
       background-color: #1a1a1a;
       border: 1px solid #333;
       border-radius: 8px;
       padding: 20px;
+      margin-bottom: 50px;
+      width: 45%;
     }
     
     .projects-section h2 {
@@ -783,15 +815,6 @@
     }
 
     /* Timer Section Styles */
-    .timer-section {
-      text-align: center;
-      margin-bottom: 40px;
-      background-color: #1a1a1a;
-      border: 1px solid #333;
-      border-radius: 8px;
-      padding: 30px;
-    }
-
     .working-status {
       display: none;
       align-items: center;
@@ -1058,26 +1081,36 @@
       </button>
     </div>
 
-    <!-- Timer Section -->
-    <div class="timer-section">
-      <div class="working-status">
-        <div class="status-dot"></div>
-        <span>Working</span>
-      </div>
-      <div class="timer-display">00:00:00</div>
-      <div style="display: flex; flex-direction: column; align-items: center; gap: 15px;">
-        <div class="toggle-switch">
-          <div class="toggle-handle">
-            <i class="fas fa-play"></i>
-          </div>
-          <div class="toggle-labels">
-            <span>Pause</span>
-            <span>Work</span>
-          </div>
+    <!-- Wrap timer and projects in flex container -->
+    <div class="flex-container">
+      <!-- Timer Section -->
+      <div class="timer-section">
+
+        <div class="working-status">
+          
+          <div class="status-dot"></div>
+          <span>Working</span>
         </div>
-        <button class="log-time-btn">
-          <span>Log Time</span>
-        </button>
+        <div class="timer-display">00:00:00</div>
+        <div style="display: flex; flex-direction: column; align-items: center; gap: 15px;">
+          <div class="toggle-switch">
+            <div class="toggle-handle">
+              <i class="fas fa-play"></i>
+            </div>
+            <div class="toggle-labels">
+              <span>Pause</span>
+              <span>Work</span>
+            </div>
+          </div>
+          <button class="log-time-btn">
+            <span>Log Time</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Projects Section -->
+      <div class="projects-section" id="projects">
+        <h2>Projects</h2>
       </div>
     </div>
 
@@ -1161,12 +1194,6 @@
         <p id="yearTotal">29h 58m</p>
         <span class="label">This Year</span>
       </div>
-    </div>
-    
-    <!-- Projects Section -->
-    <div id="projects" class="projects-section">
-      <h2>Projects</h2>
-      <!-- Project bars will be inserted here -->
     </div>
     
     <!-- Modal for Manual Session Entry -->
