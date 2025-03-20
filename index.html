@@ -33,7 +33,7 @@
       font-size: 5em;
       margin-bottom: 10px;
       font-family: 'Helvetica Neue', sans-serif;
-      font-weight: 300;
+      font-weight: bold;
     }
 
     /* Toggle Switch */
@@ -41,7 +41,7 @@
       position: relative;
       width: 200px;
       height: 60px;
-      background-color: #1a1a1a;
+      background-color: #2a2a2a;
       border-radius: 30px;
       padding: 4px;
       cursor: pointer;
@@ -116,18 +116,7 @@
     }
 
     .project-input-container {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-    }
-
-    #stopwatchProjectInput {
-      background-color: #1a1a1a;
-      border: 1px solid #333;
-      color: #fff;
-      padding: 8px 12px;
-      border-radius: 6px;
-      font-size: 14px;
+      display: none;
     }
 
     /* Calendar Styles */
@@ -539,6 +528,8 @@
       font-size: 16px;
       cursor: pointer;
       transition: all 0.3s ease;
+      margin: 0 auto;
+      display: block;
     }
     #logButton:disabled {
       background: #333;
@@ -837,12 +828,7 @@
             <span>work</span>
           </div>
         </div>
-      </div>
 
-      <div class="session-controls">
-        <div class="project-input-container">
-          <input type="text" id="stopwatchProjectInput" placeholder="What are you working on?">
-        </div>
         <button id="logButton" disabled>Log Time</button>
       </div>
     </div>
