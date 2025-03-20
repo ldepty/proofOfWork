@@ -40,10 +40,7 @@ document.addEventListener('DOMContentLoaded', function() {
       }));
 
       console.log("Sessions loaded successfully:", sessions.length);
-      console.log("First session:", sessions[0]);
-      console.log("Last session:", sessions[sessions.length - 1]);
-      
-      updateDisplay();
+      updateAllDisplays();
     } catch (err) {
       console.error("Detailed error loading sessions:", {
         message: err.message,
@@ -75,6 +72,7 @@ document.addEventListener('DOMContentLoaded', function() {
       }
 
       console.log("Sessions saved successfully");
+      updateAllDisplays(); // Update all displays after saving
     } catch (err) {
       console.error("Error saving sessions:", err);
     }
@@ -624,18 +622,13 @@ document.addEventListener('DOMContentLoaded', function() {
     return `<span class="${className}">${sign}${diffText}</span>`;
   }
 
-  function updateDisplay() {
-    console.log('Updating display...');
+  function updateAllDisplays() {
+    console.log('Updating all displays...');
     
-    // Update totals
+    // Update totals and stats
     const totals = calculateTotals();
-    console.log('Calculated totals:', totals);
-
-    // Calculate total sessions
-    const totalSessions = sessions.length;
-    document.getElementById('totalCommits').textContent = totalSessions;
-
-    // Update stats display
+    
+    // Update stats display with minutes
     document.querySelectorAll('.stat').forEach(stat => {
       const period = stat.getAttribute('data-period');
       if (period && totals[period] !== undefined) {
@@ -647,39 +640,6 @@ document.addEventListener('DOMContentLoaded', function() {
         const valueElement = stat.querySelector('p');
         if (valueElement) {
           valueElement.textContent = `${hoursDisplay}h ${minutes}m`;
-        }
-
-        // Calculate and update percentage change
-        const compareElement = stat.querySelector('.compare');
-        if (compareElement) {
-          const now = luxon.DateTime.now().setZone('Australia/Sydney');
-          let previousTotal = 0;
-          
-          if (period === 'day') {
-            const yesterday = now.minus({ days: 1 });
-            previousTotal = calculateTotalForDay(yesterday);
-          } else if (period === 'week') {
-            const lastWeekStart = now.minus({ weeks: 1 }).startOf('week');
-            const lastWeekEnd = lastWeekStart.endOf('week');
-            previousTotal = calculateTotal(lastWeekStart, lastWeekEnd);
-          } else if (period === 'month') {
-            const lastMonthStart = now.minus({ months: 1 }).startOf('month');
-            const lastMonthEnd = lastMonthStart.endOf('month');
-            previousTotal = calculateTotal(lastMonthStart, lastMonthEnd);
-          } else if (period === 'year') {
-            const lastYearStart = now.minus({ years: 1 }).startOf('year');
-            const lastYearEnd = lastYearStart.endOf('year');
-            previousTotal = calculateTotal(lastYearStart, lastYearEnd);
-          }
-
-          const diff = totals[period] - previousTotal;
-          const diffHours = Math.floor(Math.abs(diff));
-          const diffMinutes = Math.round((Math.abs(diff) - diffHours) * 60);
-          const sign = diff >= 0 ? '+' : '-';
-          const className = diff >= 0 ? 'positive' : 'negative';
-
-          compareElement.textContent = `${sign}${diffHours}h ${diffMinutes}m`;
-          compareElement.className = `compare ${className}`;
         }
       }
     });
@@ -694,7 +654,10 @@ document.addEventListener('DOMContentLoaded', function() {
     updateLast7Days();
     updateYearOverview();
 
-    console.log('Display update complete');
+    // Update commit chart
+    updateCommitChart();
+
+    console.log('All displays updated');
   }
   
   function updateLast7Days() {
@@ -910,13 +873,41 @@ document.addEventListener('DOMContentLoaded', function() {
     }
   }
 
-  // Add event listeners
+  // Add event listener for toggle switch
   document.querySelector('.toggle-switch').addEventListener('click', toggleTimer);
+
+  // Update the log time button handler
   document.querySelector('.log-time-btn').addEventListener('click', () => {
     if (isRunning) {
       toggleTimer(); // Stop the timer first
     }
-    // Add your logging logic here
+    
+    // Calculate elapsed time
+    const now = new Date().getTime();
+    const elapsed = now - startTime;
+    const hours = elapsed / (1000 * 60 * 60);
+    
+    // Get current project
+    const projectInput = document.getElementById('projectInput');
+    const project = projectInput.value.trim() || 'General';
+    
+    // Create new session with Luxon DateTime
+    const newSession = {
+      timestamp: luxon.DateTime.now().setZone('Australia/Sydney'),
+      hours: hours,
+      project: project
+    };
+    
+    // Add to sessions array and save
+    sessions.push(newSession);
+    saveSessions();
+    
+    // Reset timer display
+    const display = document.querySelector('.timer-display');
+    display.textContent = '00:00:00';
+    
+    // Clear project input
+    projectInput.value = '';
   });
   
   // ===============================
@@ -931,21 +922,27 @@ document.addEventListener('DOMContentLoaded', function() {
     document.getElementById('manualModal').style.display = 'none';
   });
   
+  // Update the manual entry handler
   document.getElementById('addButton').addEventListener('click', () => {
     const dateInputValue = document.getElementById('dateInput').value;
     const projectInputValue = document.getElementById('projectInput')?.value.trim() || 'General';
     const hoursInputValue = parseFloat(document.getElementById('hoursInput').value) || 0;
     const minutesInputValue = parseFloat(document.getElementById('minutesInput').value) || 0;
     const totalHours = hoursInputValue + minutesInputValue / 60;
-    let timestamp = dateInputValue ? new Date(dateInputValue) : new Date();
+    
+    // Create timestamp in Sydney timezone
+    const timestamp = dateInputValue 
+      ? luxon.DateTime.fromISO(dateInputValue, { zone: 'Australia/Sydney' })
+      : luxon.DateTime.now().setZone('Australia/Sydney');
+    
     const newSession = { 
       timestamp, 
       hours: totalHours,
       project: projectInputValue
     };
+    
     sessions.push(newSession);
     saveSessions();
-    updateDisplay();
     document.getElementById('manualModal').style.display = 'none';
   });
   
@@ -1214,6 +1211,67 @@ document.addEventListener('DOMContentLoaded', function() {
     const grouped = groupAchievements(achievements);
     renderMonthSidebar(grouped);
     renderAchievementsContent(grouped);
+  }
+  
+  function updateCommitChart() {
+    const container = document.getElementById('commit-chart');
+    if (!container) return;
+
+    // Get current time in Sydney
+    const now = luxon.DateTime.now().setZone('Australia/Sydney');
+    const year = now.year;
+
+    // Create start and end dates in Sydney timezone
+    const startDate = luxon.DateTime.fromObject({ year, month: 1, day: 1 }, { zone: 'Australia/Sydney' });
+    const endDate = luxon.DateTime.fromObject({ year, month: 12, day: 31 }, { zone: 'Australia/Sydney' });
+
+    // Generate array of dates for the year
+    const dates = [];
+    let currentDate = startDate;
+    while (currentDate <= endDate) {
+      dates.push(currentDate);
+      currentDate = currentDate.plus({ days: 1 });
+    }
+
+    // Calculate commits for each day
+    const commits = dates.map(date => {
+      const dayStart = date.startOf('day');
+      const dayEnd = date.endOf('day');
+      return sessions.filter(session => {
+        return session.timestamp >= dayStart && session.timestamp <= dayEnd;
+      }).length;
+    });
+
+    // Find max commits for scaling
+    const maxCommits = Math.max(...commits);
+
+    // Create chart
+    container.innerHTML = '';
+    commits.forEach((count, index) => {
+      const day = document.createElement('div');
+      day.className = 'commit-day';
+      
+      // Calculate intensity based on number of commits
+      if (count === 0) {
+        day.classList.add('zero');
+      } else if (count <= 1) {
+        day.classList.add('low');
+      } else if (count <= 2) {
+        day.classList.add('medium');
+      } else if (count <= 3) {
+        day.classList.add('three-four');
+      } else {
+        day.classList.add('high');
+      }
+
+      // Add tooltip
+      const tooltip = document.createElement('div');
+      tooltip.className = 'tooltip';
+      tooltip.textContent = `${dates[index].toFormat('MMM d')}: ${count} commit${count !== 1 ? 's' : ''}`;
+      day.appendChild(tooltip);
+
+      container.appendChild(day);
+    });
   }
   
   // ===============================
