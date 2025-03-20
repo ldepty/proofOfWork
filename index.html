@@ -19,33 +19,147 @@
       max-width: 960px;
       margin: 0 auto;
     }
-    #quote {
-      font-size: 24px;
-      margin-bottom: 20px;
-      text-align: center;
-    }
 
     /* Stopwatch Section */
     .stopwatch-section {
       text-align: center;
-      margin-bottom: 20px;
+      margin-bottom: 40px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 20px;
     }
     #stopwatchDisplay {
       font-size: 5em;
       margin-bottom: 10px;
+      font-family: 'Helvetica Neue', sans-serif;
+      font-weight: 300;
+    }
+
+    /* Toggle Switch */
+    .toggle-switch {
+      position: relative;
+      width: 200px;
+      height: 60px;
+      background-color: #1a1a1a;
+      border-radius: 30px;
+      padding: 4px;
+      cursor: pointer;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+      transition: background-color 0.3s ease;
+    }
+
+    .toggle-switch.active {
+      background-color: #7700FF;
+    }
+
+    .toggle-handle {
+      position: absolute;
+      left: 4px;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 52px;
+      height: 52px;
+      background-color: #fff;
+      border-radius: 50%;
+      transition: all 0.3s ease;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .toggle-switch.active .toggle-handle {
+      transform: translate(140px, -50%);
+    }
+
+    .toggle-labels {
+      position: absolute;
+      width: 100%;
+      height: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 25px;
+      box-sizing: border-box;
+      color: #666;
+      font-weight: 500;
+      font-size: 16px;
+    }
+
+    .toggle-labels span {
+      opacity: 0;
+      transition: opacity 0.3s ease;
+    }
+
+    /* When in rest mode (not active), show only the "work" text */
+    .toggle-switch:not(.active) .toggle-labels span:last-child {
+      opacity: 1;
+    }
+
+    /* When in work mode (active), show only the "rest" text */
+    .toggle-switch.active .toggle-labels span:first-child {
+      opacity: 1;
+      color: rgba(255,255,255,0.9);
+    }
+
+    .toggle-handle i {
+      font-size: 24px;
+      color: #1a1a1a;
+    }
+
+    /* Project Input and Log Button Container */
+    .session-controls {
+      display: flex;
+      align-items: center;
+      gap: 15px;
+      margin-top: 20px;
+    }
+
+    .project-input-container {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    #stopwatchProjectInput {
+      background-color: #1a1a1a;
+      border: 1px solid #333;
+      color: #fff;
+      padding: 8px 12px;
+      border-radius: 6px;
+      font-size: 14px;
     }
 
     /* Calendar Styles */
-    #calendar {
+    .month-labels {
+      display: flex;
+      justify-content: space-between;
+      padding: 0 10px;
+      margin-bottom: 8px;
+    }
+    
+    .month-label {
+      color: #666;
+      font-size: 12px;
+      flex: 1;
+      text-align: center;
+    }
+
+    .calendar-grid {
       display: grid;
-      /* Originally: grid-template-rows: repeat(7, 15px); */
-      /* Now add an extra row at the top for months: */
-      grid-template-rows: 15px repeat(7, 15px);
+      grid-template-rows: repeat(7, 1fr);
       grid-auto-flow: column;
       gap: 3px;
+      padding: 0 10px;
+      height: 140px; /* 7 rows * (15px height + 5px gap) */
+    }
+
+    #calendar {
+      margin-top: 20px;
       margin-bottom: 20px;
       position: relative;
     }
+
     .day {
       width: 15px;
       height: 15px;
@@ -64,6 +178,7 @@
     .day.medium { background-color: #B28AC9; }
     .day.three-four { background-color: #9370DB; }
     .day.high { background-color: #7700FF; }
+    
     .tooltip {
       position: absolute;
       background-color: #333;
@@ -79,13 +194,6 @@
     }
     .day:hover .tooltip {
       display: block;
-    }
-
-    .month-label {
-      font-size: 10px;
-      color: #aaa;        
-      text-align: center;
-      white-space: nowrap;
     }
 
     /* Impact Legend */
@@ -160,38 +268,110 @@
       font-size: 24px;
       font-weight: bold;
       margin: 0;
+      margin-bottom: 2px;
+      line-height: 1.2;
+      display: flex;
+      align-items: baseline;
+      justify-content: center;
+      gap: 8px;
     }
-    .stat span {
-      font-size: 16px;
+    .stat span.label {
+      font-size: 14px;
+      color: #999;
+      display: block;
+      margin-top: 4px;
+    }
+
+    /* Time Difference Styles */
+    .time-difference {
+      font-size: 11px;
+      line-height: 1;
+      font-weight: normal;
+      margin-left: 4px;
+    }
+    .time-difference.positive {
+      color: #4CAF50;
+    }
+    .time-difference.negative {
+      color: #f44336;
+    }
+
+    /* Percentage Change Styles */
+    .positive-change, .negative-change {
+      font-size: 12px;
+      line-height: 1;
+      display: block;
+      margin: 0;
+    }
+    .positive-change {
+      color: #4CAF50;
+    }
+    .negative-change {
+      color: #f44336;
+    }
+    .positive-change i, .negative-change i {
+      font-size: 10px;
+      margin-right: 1px;
     }
 
     /* Projects Section */
     .projects-section {
-      margin-top: 20px;
-      text-align: left;
-    }
-    /* 4-column grid, matching Stats layout */
-    .projects-list {
-      display: grid;
-      grid-template-columns: repeat(4, 1fr);
-      gap: 20px;
-      text-align: center;
-      margin-top: 20px;
-    }
-    .project-box {
+      margin-top: 40px;
       background-color: #1a1a1a;
       border: 1px solid #333;
       border-radius: 8px;
-      padding: 1rem;
+      padding: 20px;
     }
-    .project-box h3 {
-      margin: 0 0 0.5rem;
-      font-size: 18px;
-      color: #9370DB;
+    
+    .projects-section h2 {
+      margin: 0 0 20px 0;
+      color: #fff;
+      font-size: 24px;
     }
-    .project-box p {
-      margin: 0;
+
+    .project-bar {
+      margin-bottom: 15px;
+      padding: 10px;
+      border-radius: 6px;
+      background-color: #111;
+    }
+
+    .project-header {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 8px;
       font-size: 16px;
+    }
+
+    .project-name {
+      color: #fff;
+      font-weight: 500;
+    }
+
+    .project-hours {
+      color: #9370DB;
+      font-weight: 500;
+    }
+
+    .bar-container {
+      width: 100%;
+      height: 10px;
+      background-color: #2a2a2a;
+      border-radius: 5px;
+      overflow: hidden;
+    }
+
+    .bar-fill {
+      height: 100%;
+      background: linear-gradient(to right, #8e2de2, #4a00e0);
+      border-radius: 5px;
+      transition: width 0.3s ease;
+    }
+
+    /* Remove old grid layout */
+    .projects-list {
+      max-width: 800px;
+      margin: 0 auto;
     }
 
     /* Modal Styles */
@@ -351,45 +531,23 @@
        LOG MINUTES BUTTON (LIGHT)
        ========================= */
     #logButton {
-      background: linear-gradient(to right, #f0f0f0, #cccccc); /* Light grey gradient */
-      color: #333;
+      background: linear-gradient(to right, #7700FF, #9370DB);
+      color: white;
       border: none;
-      border-radius: 999px;
-      padding: 14px 32px;
-      font-size: 18px;
-      font-weight: bold;
+      border-radius: 6px;
+      padding: 12px 24px;
+      font-size: 16px;
       cursor: pointer;
-      position: relative;
-      overflow: hidden;
-      transition: transform 0.3s ease, box-shadow 0.3s ease;
+      transition: all 0.3s ease;
     }
-    #logButton::before,
-    #logButton::after {
-      content: '';
-      position: absolute;
-      width: 16px;
-      height: 16px;
-      background: radial-gradient(circle, rgba(255,255,255,0.7) 0%, transparent 60%);
-      border-radius: 50%;
-      opacity: 0;
-      animation: sparkle 2s infinite ease-in-out;
+    #logButton:disabled {
+      background: #333;
+      cursor: not-allowed;
+      opacity: 0.6;
     }
-    #logButton::before {
-      top: 20%;
-      left: 20%;
-    }
-    #logButton::after {
-      bottom: 20%;
-      right: 20%;
-      animation-delay: 1s;
-    }
-    #logButton:hover {
-      transform: translateY(-3px);
-      box-shadow: 0 8px 20px rgba(0,0,0,0.2);
-    }
-    #logButton:active {
-      transform: translateY(1px);
-      box-shadow: none;
+    #logButton:not(:disabled):hover {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(119, 0, 255, 0.3);
     }
 
     /* Achievements Container */
@@ -468,6 +626,181 @@
       cursor: pointer;
       margin-left: 1rem;
     }
+
+    /* Project Selector */
+    .project-selector {
+      background-color: #1a1a1a;
+      border-radius: 8px;
+      padding: 20px;
+      margin-bottom: 30px;
+      display: flex;
+      align-items: center;
+      gap: 15px;
+    }
+    .project-selector input {
+      flex: 1;
+      background-color: #2a2a2a;
+      border: none;
+      border-radius: 6px;
+      color: #fff;
+      font-size: 16px;
+      padding: 12px 15px;
+    }
+    .project-selector button {
+      background-color: #470099;
+      color: white;
+      border: none;
+      border-radius: 6px;
+      padding: 12px 20px;
+      font-size: 14px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .project-selector button:hover {
+      background-color: #5600b3;
+    }
+
+    /* Create Project Modal */
+    .modal {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background-color: rgba(0, 0, 0, 0.7);
+      z-index: 1000;
+    }
+    .modal-content {
+      background-color: #1a1a1a;
+      margin: 15% auto;
+      padding: 30px;
+      border-radius: 8px;
+      width: 400px;
+      position: relative;
+    }
+    .modal h2 {
+      margin-top: 0;
+      margin-bottom: 20px;
+    }
+    .color-picker {
+      display: grid;
+      grid-template-columns: repeat(6, 1fr);
+      gap: 10px;
+      margin: 20px 0;
+    }
+    .color-option {
+      width: 30px;
+      height: 30px;
+      border-radius: 50%;
+      cursor: pointer;
+      border: 2px solid transparent;
+    }
+    .color-option.selected {
+      border-color: white;
+    }
+    .modal input {
+      width: 100%;
+      background-color: #2a2a2a;
+      border: none;
+      border-radius: 6px;
+      color: #fff;
+      font-size: 16px;
+      padding: 12px 15px;
+      margin-bottom: 20px;
+      box-sizing: border-box;
+    }
+    .modal-buttons {
+      display: flex;
+      justify-content: flex-end;
+      gap: 10px;
+    }
+    .modal button {
+      padding: 10px 20px;
+      border-radius: 6px;
+      border: none;
+      cursor: pointer;
+    }
+    .modal button.cancel {
+      background-color: #2a2a2a;
+      color: #fff;
+    }
+    .modal button.create {
+      background-color: #470099;
+      color: #fff;
+    }
+
+    /* Calendar Section */
+    #calendar-section {
+      background-color: #1a1a1a;
+      border: 1px solid #333;
+      border-radius: 8px;
+      padding: 20px;
+      margin-bottom: 30px;
+    }
+
+    #calendar-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 20px;
+    }
+
+    #calendar-header h2 {
+      margin: 0;
+      font-size: 24px;
+    }
+
+    #total-hours {
+      color: #fff;
+      font-size: 18px;
+    }
+
+    /* Timer Section */
+    #timer-section {
+      background-color: #1a1a1a;
+      border: 1px solid #333;
+      border-radius: 8px;
+      padding: 20px;
+      margin-bottom: 30px;
+    }
+
+    /* Last 7 Days Section */
+    #last-seven-days {
+      background-color: #1a1a1a;
+      border: 1px solid #333;
+      border-radius: 8px;
+      padding: 20px;
+      margin-bottom: 30px;
+    }
+
+    .day-row {
+      display: flex;
+      justify-content: space-between;
+      padding: 10px 0;
+      border-bottom: 1px solid #333;
+    }
+
+    .day-row:last-child {
+      border-bottom: none;
+    }
+
+    .day-name {
+      color: #fff;
+    }
+
+    .day-hours {
+      color: #fff;
+    }
+
+    .day-project {
+      color: #666;
+      text-align: center;
+      flex: 1;
+      margin: 0 20px;
+    }
   </style>
 </head>
 <body>
@@ -479,36 +812,65 @@
       -webkit-background-clip: text;">
       Work Tracker
     </p>
-    <div id="quote"></div>
 
-    <!-- Stopwatch Section -->
-    <div class="stopwatch-section">
-      <div id="stopwatchDisplay">00:00:00</div>
-      <br>
-      <button id="startButton">Start</button>
-      <button id="stopButton" disabled>Pause</button>
-      <button id="logButton" disabled>Log Session</button>
-      <label for="stopwatchProjectInput">Project:</label>
-      <input type="text" id="stopwatchProjectInput" placeholder="e.g. Project A" list="projectList">
+    <!-- Project Selector -->
+    <div class="project-selector">
+      <input type="text" id="projectInput" list="projectList" placeholder="What are you working on?">
+      <datalist id="projectList"></datalist>
+      <button id="createProjectBtn">
+        <i class="fas fa-plus"></i>
+        Add new project
+      </button>
     </div>
 
-    <!-- Link to trigger the manual session modal -->
-    <p style="text-align: center; margin-top: 20px;">
-      <a href="#" id="manualSessionLink">Manually enter session</a>
-    </p>
+    <!-- Timer Section -->
+    <div id="timer-section">
+      <div class="stopwatch-section">
+        <div id="stopwatchDisplay">00:00:00</div>
+        
+        <div class="toggle-switch">
+          <div class="toggle-handle">
+            <i class="fas fa-play"></i>
+          </div>
+          <div class="toggle-labels">
+            <span>rest</span>
+            <span>work</span>
+          </div>
+        </div>
+      </div>
 
-    <!-- Calendar -->
-    <div id="calendar"></div>
+      <div class="session-controls">
+        <div class="project-input-container">
+          <input type="text" id="stopwatchProjectInput" placeholder="What are you working on?">
+        </div>
+        <button id="logButton" disabled>Log Time</button>
+      </div>
+    </div>
 
-    <!-- Impact Legend -->
-    <div class="impact-legend">
-      <span class="legend-label">Low Impact</span>
-      <div class="impact-box zero" data-tooltip="0 hours"></div>
-      <div class="impact-box low" data-tooltip="1-2 hours"></div>
-      <div class="impact-box medium" data-tooltip="2-3 hours"></div>
-      <div class="impact-box three-four" data-tooltip="3-4 hours"></div>
-      <div class="impact-box high" data-tooltip="4+ hours"></div>
-      <span class="legend-label">High Impact</span>
+    <!-- Calendar Section -->
+    <div id="calendar-section">
+      <div id="calendar-header">
+        <h2>Activity Overview</h2>
+        <div id="total-hours">0h 0m total</div>
+      </div>
+      <div id="calendar"></div>
+      
+      <!-- Impact Legend -->
+      <div class="impact-legend">
+        <span class="legend-label">Low Impact</span>
+        <div class="impact-box zero" data-tooltip="0 hours"></div>
+        <div class="impact-box low" data-tooltip="1-2 hours"></div>
+        <div class="impact-box medium" data-tooltip="2-3 hours"></div>
+        <div class="impact-box three-four" data-tooltip="3-4 hours"></div>
+        <div class="impact-box high" data-tooltip="4+ hours"></div>
+        <span class="legend-label">High Impact</span>
+      </div>
+    </div>
+
+    <!-- Last 7 Days -->
+    <div id="last-seven-days">
+      <h2>Last 7 Days</h2>
+      <div id="seven-days-content"></div>
     </div>
 
     <!-- Stats Header -->
@@ -519,54 +881,48 @@
       <div class="stat">
         <i class="fas fa-code-branch"></i>
         <p id="totalCommits">20</p>
-        <span>Total Commits</span>
+        <span class="label">Total Commits</span>
       </div>
       <div class="stat">
         <i class="fas fa-calendar-day"></i>
         <p id="todayTotal">0h 0m</p>
-        <span>Today</span>
+        <span class="label">Today</span>
       </div>
       <div class="stat">
         <i class="fas fa-calendar-week"></i>
         <p id="weekTotal">11h 56m</p>
-        <span>This Week</span>
-      </div>
-      <div class="stat">
-        <i class="fas fa-history"></i>
-        <p id="lastWeekTotal">9h 2m</p>
-        <span>Last Week</span>
-      </div>
-      <div class="stat">
-        <i class="fas fa-trophy"></i>
-        <p id="bestDay">4h 47m</p>
-        <span>Best Day</span>
-      </div>
-      <div class="stat">
-        <i class="fas fa-chart-line"></i>
-        <p id="avgWorkDay">3h 0m</p>
-        <span>Avg/Workday</span>
+        <span class="label">This Week</span>
       </div>
       <div class="stat">
         <i class="fas fa-calendar-alt"></i>
         <p id="monthTotal">11h 56m</p>
-        <span>This Month</span>
+        <span class="label">This Month</span>
+      </div>
+      <div class="stat">
+        <i class="fas fa-trophy"></i>
+        <p id="bestDay">4h 47m</p>
+        <span class="label">Best Day</span>
+      </div>
+      <div class="stat">
+        <i class="fas fa-chart-line"></i>
+        <p id="avgWorkDay">3h 0m</p>
+        <span class="label">Avg/Workday</span>
+      </div>
+      <div class="stat">
+        <i class="fas fa-fire"></i>
+        <p id="currentStreak">0</p>
+        <span class="label">Day Streak</span>
       </div>
       <div class="stat">
         <i class="fas fa-calendar"></i>
         <p id="yearTotal">29h 58m</p>
-        <span>This Year</span>
+        <span class="label">This Year</span>
       </div>
     </div>
     
-    <!-- Datalist for Project Autocomplete -->
-    <datalist id="projectList"></datalist>
-
-    <!-- Projects Summary -->
-    <div class="projects-section">
-      <h2>Hours by Project</h2>
-      <div class="projects-list" id="projectsDisplay">
-        <div class="project-box"> </div>        
-      </div>
+    <!-- Projects Section -->
+    <div id="projects" class="projects-section">
+      <!-- Project bars will be inserted here -->
     </div>
     
     <!-- Modal for Manual Session Entry -->
@@ -606,6 +962,26 @@
         
         <!-- Main achievements area -->
         <div id="notesDisplay" class="notes-display"></div>
+      </div>
+    </div>
+
+    <!-- Move Manual Session Entry to bottom -->
+    <div class="manual-entry-section" style="margin-top: 40px;">
+      <p style="text-align: center;">
+        <a href="#" id="manualSessionLink">Manually enter session</a>
+      </p>
+    </div>
+
+    <!-- Create Project Modal -->
+    <div id="createProjectModal" class="modal">
+      <div class="modal-content">
+        <h2>Create New Project</h2>
+        <input type="text" id="newProjectName" placeholder="Project name">
+        <div id="colorPicker" class="color-picker"></div>
+        <div class="modal-buttons">
+          <button id="cancelProjectBtn" class="cancel">Cancel</button>
+          <button id="confirmProjectBtn" class="create">Create</button>
+        </div>
       </div>
     </div>
   </div>

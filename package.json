@@ -1,0 +1,24 @@
+{
+  "name": "tracker",
+  "version": "1.0.0",
+  "description": "A work tracker to log your deep work sessions. Track over the entire year and see how productive you have been Also add daily achievements so you can keep track on what you've been working on Runs locally on your machine, saves data to 2 differnt json files  Made 100% with Grok/ Chat GPT",
+  "main": "app.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "node server.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ldepty/proofOfWork.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/ldepty/proofOfWork/issues"
+  },
+  "homepage": "https://github.com/ldepty/proofOfWork#readme",
+  "dependencies": {
+    "express": "^4.21.2"
+  }
+}

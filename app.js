@@ -1,22 +1,5 @@
 document.addEventListener('DOMContentLoaded', function() {
   // ===============================
-  // Inspirational Quotes Section
-  // ===============================
-  const quotes = [
-    " The only place where success comes before work is in the dictionary. — Vidal Sassoon",
-    "There are no secrets to success. It is the result of preparation, hard work, and learning from failure. — Colin Powell",
-    "I'm a greater believer in luck, and I find the harder I work, the more I have of it. — Thomas Jefferson",
-    "Success is no accident. It is hard work, perseverance, learning, studying, sacrifice and, most of all, love of what you are doing or learning to do. — Pelé",
-    "Hard work transforms dreams into reality; perseverance turns them into achievements. — Unknown"
-  ];
-  
-  function setRandomQuote() {
-    const quoteElement = document.getElementById('quote');
-    const randomIndex = Math.floor(Math.random() * quotes.length);
-    quoteElement.textContent = quotes[randomIndex];
-  }
-
-  // ===============================
   // Helper Functions (Sydney Time)
   // ===============================
   function getSydneyDate() {
@@ -36,26 +19,62 @@ document.addEventListener('DOMContentLoaded', function() {
   
   async function loadSessions() {
     try {
-      const res = await fetch('/data');
-      sessions = (await res.json()).map(session => ({
-        timestamp: new Date(session.timestamp),
-        hours: session.hours,
-        project: session.project || 'General'
+      console.log("Attempting to load sessions from http://localhost:3000/data.json");
+      const response = await fetch('http://localhost:3000/data.json');
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      
+      const data = await response.json();
+      console.log("Raw data received:", data);
+      
+      if (!Array.isArray(data)) {
+        throw new Error('Data is not an array');
+      }
+      
+      // Convert timestamps to Luxon DateTime objects in Sydney timezone
+      sessions = data.map(session => ({
+        ...session,
+        timestamp: luxon.DateTime.fromISO(session.timestamp, { zone: 'Australia/Sydney' })
       }));
-      console.log("Sessions loaded:", sessions);
+
+      console.log("Sessions loaded successfully:", sessions.length);
+      console.log("First session:", sessions[0]);
+      console.log("Last session:", sessions[sessions.length - 1]);
+      
       updateDisplay();
     } catch (err) {
-      console.error("Error loading sessions:", err);
+      console.error("Detailed error loading sessions:", {
+        message: err.message,
+        stack: err.stack,
+        type: err.name
+      });
+      sessions = [];
     }
   }
   
   async function saveSessions() {
     try {
-      await fetch('/data', {
+      // Convert Luxon DateTime objects to ISO strings for storage
+      const dataToSave = sessions.map(session => ({
+        ...session,
+        timestamp: session.timestamp.toISO()
+      }));
+
+      const response = await fetch('http://localhost:3000/data.json', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(sessions)
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(dataToSave)
       });
+
+      if (!response.ok) {
+        throw new Error('Failed to save sessions');
+      }
+
+      console.log("Sessions saved successfully");
     } catch (err) {
       console.error("Error saving sessions:", err);
     }
@@ -64,115 +83,209 @@ document.addEventListener('DOMContentLoaded', function() {
   // ===============================
   // Totals & Calendar Functions (Using Luxon)
   // ===============================
+  function calculateTotals() {
+    console.log('Calculating totals...');
+    
+    // Get current time in Sydney
+    const now = luxon.DateTime.now().setZone('Australia/Sydney');
+    console.log('Current time (Sydney):', now.toISO());
+
+    // Calculate day range
+    const dayStart = now.startOf('day');
+    const dayEnd = now.endOf('day');
+
+    // Calculate week range (Monday to Sunday)
+    const weekStart = now.startOf('week');
+    const weekEnd = now.endOf('week');
+
+    // Calculate month range
+    const monthStart = now.startOf('month');
+    const monthEnd = now.endOf('month');
+
+    // Calculate year range
+    const yearStart = now.startOf('year');
+    const yearEnd = now.endOf('year');
+
+    // Calculate totals using proper DateTime comparison
+    const dayTotal = sessions.reduce((sum, session) => {
+      const sessionTime = session.timestamp;
+      if (sessionTime >= dayStart && sessionTime <= dayEnd) {
+        return sum + session.hours;
+      }
+      return sum;
+    }, 0);
+
+    const weekTotal = sessions.reduce((sum, session) => {
+      const sessionTime = session.timestamp;
+      if (sessionTime >= weekStart && sessionTime <= weekEnd) {
+        return sum + session.hours;
+      }
+      return sum;
+    }, 0);
+
+    const monthTotal = sessions.reduce((sum, session) => {
+      const sessionTime = session.timestamp;
+      if (sessionTime >= monthStart && sessionTime <= monthEnd) {
+        return sum + session.hours;
+      }
+      return sum;
+    }, 0);
+
+    const yearTotal = sessions.reduce((sum, session) => {
+      const sessionTime = session.timestamp;
+      if (sessionTime >= yearStart && sessionTime <= yearEnd) {
+        return sum + session.hours;
+      }
+      return sum;
+    }, 0);
+
+    // Update the stats display
+    document.getElementById('todayTotal').textContent = formatHoursMinutes(dayTotal);
+    document.getElementById('weekTotal').textContent = formatHoursMinutes(weekTotal);
+    document.getElementById('monthTotal').textContent = formatHoursMinutes(monthTotal);
+    document.getElementById('yearTotal').textContent = formatHoursMinutes(yearTotal);
+
+    // Update total hours in calendar header
+    const totalHoursElement = document.getElementById('total-hours');
+    if (totalHoursElement) {
+      totalHoursElement.textContent = `${formatHoursMinutes(yearTotal)} total`;
+    }
+
+    return {
+      day: dayTotal,
+      week: weekTotal,
+      month: monthTotal,
+      year: yearTotal
+    };
+  }
+
   function calculateTotal(start, end) {
-    return sessions
+    const total = sessions
       .filter(session => {
         const sessionDate = luxon.DateTime.fromJSDate(session.timestamp).setZone('Australia/Sydney');
-        return sessionDate >= start && sessionDate < end;
+        const isInRange = sessionDate >= start && sessionDate < end;
+        console.log("Session:", sessionDate.toISO(), "in range:", isInRange, "hours:", session.hours);
+        return isInRange;
       })
       .reduce((sum, session) => sum + session.hours, 0);
+    
+    console.log(`Total for ${start.toISO()} to ${end.toISO()}: ${total}`);
+    return total;
   }
   
   function calculateTotalForDay(date) {
-    // Convert the given date to a Luxon DateTime in Sydney time
-    const sydneyStart = luxon.DateTime.fromJSDate(date).setZone('Australia/Sydney').startOf('day');
-    const sydneyEnd = sydneyStart.plus({ days: 1 });
+    // Convert input date to Luxon DateTime in Sydney timezone if it's not already
+    const sydneyDate = luxon.DateTime.isDateTime(date) 
+      ? date.setZone('Australia/Sydney')
+      : luxon.DateTime.fromJSDate(date).setZone('Australia/Sydney');
+    
+    const sydneyStart = sydneyDate.startOf('day');
+    const sydneyEnd = sydneyDate.endOf('day');
+
     return sessions.filter(session => {
-      const sessionDate = luxon.DateTime.fromJSDate(session.timestamp).setZone('Australia/Sydney');
-      return sessionDate >= sydneyStart && sessionDate < sydneyEnd;
+      return session.timestamp >= sydneyStart && session.timestamp <= sydneyEnd;
     }).reduce((sum, session) => sum + session.hours, 0);
   }
 
   function calculateCommitsForDay(date) {
-    const sydneyStart = luxon.DateTime.fromJSDate(date).setZone('Australia/Sydney').startOf('day');
-    const sydneyEnd = sydneyStart.plus({ days: 1 });
+    // Convert input date to Luxon DateTime in Sydney timezone if it's not already
+    const sydneyDate = luxon.DateTime.isDateTime(date) 
+      ? date.setZone('Australia/Sydney')
+      : luxon.DateTime.fromJSDate(date).setZone('Australia/Sydney');
+    
+    const sydneyStart = sydneyDate.startOf('day');
+    const sydneyEnd = sydneyDate.endOf('day');
+
     return sessions.filter(session => {
-      const sessionDate = luxon.DateTime.fromJSDate(session.timestamp).setZone('Australia/Sydney');
-      return sessionDate >= sydneyStart && sessionDate < sydneyEnd;
+      return session.timestamp >= sydneyStart && session.timestamp <= sydneyEnd;
     }).length;
-  }
-  
-  function calculateTotals() {
-    const now = new Date();
-    const startOfDay = luxon.DateTime.fromJSDate(now).setZone('Australia/Sydney').startOf('day');
-    const endOfDay = startOfDay.plus({ days: 1 });
-    const startOfWeek = luxon.DateTime.fromJSDate(now).setZone('Australia/Sydney').startOf('week');
-    const endOfWeek = startOfWeek.plus({ weeks: 1 });
-    const startOfMonth = luxon.DateTime.fromJSDate(now).setZone('Australia/Sydney').startOf('month');
-    const endOfMonth = startOfMonth.plus({ months: 1 });
-    const startOfYear = luxon.DateTime.fromJSDate(now).setZone('Australia/Sydney').startOf('year');
-    const endOfYear = startOfYear.plus({ years: 1 });
-  
-    const todayTotal = calculateTotal(startOfDay, endOfDay);
-    const weekTotal = calculateTotal(startOfWeek, endOfWeek);
-    const monthTotal = calculateTotal(startOfMonth, endOfMonth);
-    const yearTotal = calculateTotal(startOfYear, endOfYear);
-    const totalCommits = sessions.length;
-  
-    return { todayTotal, weekTotal, monthTotal, yearTotal, totalCommits };
   }
   
   function generateCalendar() {
     const calendarDiv = document.getElementById('calendar');
     if (!calendarDiv) {
-      console.error("Calendar div not found!");
+      console.error('Calendar div not found');
       return;
     }
+
+    // Clear existing calendar
     calendarDiv.innerHTML = '';
-    console.log("Generating calendar...");
+
+    // Get current time in Sydney
+    const now = luxon.DateTime.now().setZone('Australia/Sydney');
+    const year = now.year;
+
+    // Create start and end dates in Sydney timezone
+    const startDate = luxon.DateTime.fromObject({ year, month: 1, day: 1 }, { zone: 'Australia/Sydney' });
+    const endDate = luxon.DateTime.fromObject({ year, month: 12, day: 31 }, { zone: 'Australia/Sydney' });
+
+    // Create container for month labels
+    const monthLabelsContainer = document.createElement('div');
+    monthLabelsContainer.className = 'month-labels';
     
-    let yearToDisplay = new Date().getFullYear();
-    if (sessions.length > 0) {
-      // Use the year from the first session's timestamp
-      yearToDisplay = sessions[0].timestamp.getFullYear();
+    // Add month labels
+    for (let month = 1; month <= 12; month++) {
+      const monthLabel = document.createElement('div');
+      monthLabel.className = 'month-label';
+      monthLabel.textContent = luxon.DateTime.fromObject({ month }, { zone: 'Australia/Sydney' }).toFormat('MMM');
+      monthLabelsContainer.appendChild(monthLabel);
     }
-    
-    // Create start/end date in Sydney time
-    const startDate = luxon.DateTime.fromObject({ year: yearToDisplay, month: 1, day: 1 }, { zone: 'Australia/Sydney' }).toJSDate();
-    const endDate = luxon.DateTime.fromObject({ year: yearToDisplay, month: 12, day: 31 }, { zone: 'Australia/Sydney' }).toJSDate();
-    
-    const days = Math.ceil((endDate - startDate) / (1000 * 60 * 60 * 24)) + 1;
-    console.log("Days in year:", days);
-  
-    const dateArray = [];
-    for (let i = 0; i < days; i++) {
-      const date = new Date(startDate);
-      date.setDate(startDate.getDate() + i);
-      dateArray.push(date);
+    calendarDiv.appendChild(monthLabelsContainer);
+
+    // Generate array of dates for the year
+    const dates = [];
+    let currentDate = startDate;
+    while (currentDate <= endDate) {
+      dates.push(currentDate);
+      currentDate = currentDate.plus({ days: 1 });
     }
-    console.log("Date array length:", dateArray.length);
-  
-    dateArray.forEach(date => {
+
+    // Create calendar grid
+    const calendarGrid = document.createElement('div');
+    calendarGrid.className = 'calendar-grid';
+
+    // Add days to grid
+    dates.forEach(date => {
+      const dayElement = document.createElement('div');
+      dayElement.className = 'day';
+
+      // Calculate total hours for this day
       const totalHours = calculateTotalForDay(date);
-      const commitCount = calculateCommitsForDay(date);
-  
-      let className = 'day';
+      
+      // Add intensity class based on hours
       if (totalHours === 0) {
-        className += ' zero';
+        dayElement.classList.add('zero');
       } else if (totalHours <= 2) {
-        className += ' low';
-      } else if (totalHours <= 3) {
-        className += ' medium';
+        dayElement.classList.add('low');
       } else if (totalHours <= 4) {
-        className += ' three-four';
+        dayElement.classList.add('medium');
+      } else if (totalHours <= 6) {
+        dayElement.classList.add('three-four');
       } else {
-        className += ' high';
+        dayElement.classList.add('high');
       }
-  
-      const dayDiv = document.createElement('div');
-      dayDiv.className = className;
-  
-      const tooltip = document.createElement('div');
-      tooltip.className = 'tooltip';
-      const formattedDate = luxon.DateTime.fromJSDate(date)
-        .setZone('Australia/Sydney')
-        .toFormat('ccc LLLL d');
-      tooltip.textContent = `${formattedDate}: ${formatHoursMinutes(totalHours)}, ${commitCount} commits`;
-  
-      dayDiv.appendChild(tooltip);
-      calendarDiv.appendChild(dayDiv);
+
+      // Create tooltip
+      const formattedDate = date.toLocaleString({ 
+        weekday: 'short', 
+        month: 'short', 
+        day: 'numeric',
+        year: 'numeric'
+      });
+      const formattedHours = totalHours > 0 ? `${totalHours.toFixed(1)} hours` : 'No hours';
+      dayElement.title = `${formattedDate}\n${formattedHours}`;
+
+      calendarGrid.appendChild(dayElement);
     });
-    console.log("Calendar generated with", calendarDiv.children.length, "day elements.");
+
+    calendarDiv.appendChild(calendarGrid);
+
+    // Update total hours in header
+    const totalHours = sessions.reduce((sum, session) => sum + session.hours, 0);
+    const totalHoursElement = document.getElementById('total-hours');
+    if (totalHoursElement) {
+      totalHoursElement.textContent = `${formatHoursMinutes(totalHours)} total`;
+    }
   }
   
   function formatHoursMinutes(decimalHours) {
@@ -229,30 +342,185 @@ document.addEventListener('DOMContentLoaded', function() {
   // ===============================
   function calculateHoursByProject() {
     const projectTotals = {};
+    
+    // First pass: normalize project names and sum hours
     sessions.forEach(session => {
-      const proj = session.project || 'General';
-      projectTotals[proj] = (projectTotals[proj] || 0) + session.hours;
+      const projectName = (session.project || 'General').toLowerCase();
+      projectTotals[projectName] = (projectTotals[projectName] || 0) + session.hours;
     });
-    return projectTotals;
+    
+    // Create a mapping of normalized names to display names
+    const displayNames = {};
+    sessions.forEach(session => {
+      const normalizedName = (session.project || 'General').toLowerCase();
+      // Keep the first capitalization we see for each project
+      if (!displayNames[normalizedName]) {
+        displayNames[normalizedName] = session.project || 'General';
+      }
+    });
+    
+    // Create final result with proper display names
+    const result = {};
+    Object.entries(projectTotals).forEach(([normalizedName, hours]) => {
+      result[displayNames[normalizedName]] = hours;
+    });
+    
+    // Sort projects by hours in descending order
+    return Object.entries(result)
+      .sort(([,a], [,b]) => b - a)
+      .reduce((r, [k, v]) => ({ ...r, [k]: v }), {});
   }
   
-  function renderProjects(projectTotals) {
-    const projectsDisplay = document.getElementById('projectsDisplay');
-    if (!projectsDisplay) return;
-    projectsDisplay.innerHTML = '';
-  
-    const ul = document.createElement('ul');
-    for (const [projectName, totalHours] of Object.entries(projectTotals)) {
-      const li = document.createElement('li');
-      li.textContent = `${projectName}: ${formatHoursMinutes(totalHours)}`;
-      ul.appendChild(li);
+  // ===============================
+  // Project Management
+  // ===============================
+  let projects = [
+    { id: 1, name: 'Assassination of Mahmoud al-Mabhouh (research)', color: '#FF6B6B' },
+    { id: 2, name: 'general', color: '#4ECDC4' },
+    { id: 3, name: 'The Pope Video', color: '#45B7D1' }
+  ];
+  const defaultColors = [
+    '#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FFEEAD', '#D4A5A5',
+    '#9B59B6', '#3498DB', '#2ECC71', '#F1C40F', '#E67E22', '#E74C3C'
+  ];
+
+  async function loadProjects() {
+    try {
+      const response = await fetch('http://localhost:3000/projects.json');
+      projects = await response.json();
+      updateProjectOptions();
+    } catch (err) {
+      console.error("Error loading projects:", err);
+      // Initialize with default projects if file doesn't exist
+      projects = [
+        { id: 1, name: 'Assassination of Mahmoud al-Mabhouh (research)', color: '#FF6B6B' },
+        { id: 2, name: 'general', color: '#4ECDC4' },
+        { id: 3, name: 'The Pope Video', color: '#45B7D1' }
+      ];
     }
-    projectsDisplay.appendChild(ul);
   }
-  
-  // ===============================
-  // Update the Project Options List
-  // ===============================
+
+  async function saveProjects() {
+    try {
+      const response = await fetch('http://localhost:3000/projects.json', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(projects)
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to save projects');
+      }
+
+      console.log("Projects saved successfully");
+    } catch (err) {
+      console.error("Error saving projects:", err);
+    }
+  }
+
+  // Initialize color picker
+  function initializeColorPicker() {
+    const colorPicker = document.getElementById('colorPicker');
+    if (!colorPicker) {
+      console.warn('Color picker element not found');
+      return;
+    }
+    
+    defaultColors.forEach(color => {
+      const colorOption = document.createElement('div');
+      colorOption.className = 'color-option';
+      colorOption.style.backgroundColor = color;
+      colorOption.addEventListener('click', () => {
+        document.querySelectorAll('.color-option').forEach(opt => opt.classList.remove('selected'));
+        colorOption.classList.add('selected');
+      });
+      colorPicker.appendChild(colorOption);
+    });
+  }
+
+  // Call initialize after DOM is loaded
+  initializeColorPicker();
+
+  // Project creation modal handlers
+  const createProjectBtn = document.getElementById('createProjectBtn');
+  const createProjectModal = document.getElementById('createProjectModal');
+  const cancelProjectBtn = document.getElementById('cancelProjectBtn');
+  const confirmProjectBtn = document.getElementById('confirmProjectBtn');
+  const newProjectName = document.getElementById('newProjectName');
+
+  createProjectBtn.addEventListener('click', () => {
+    createProjectModal.style.display = 'block';
+    newProjectName.value = '';
+    document.querySelectorAll('.color-option').forEach(opt => opt.classList.remove('selected'));
+  });
+
+  cancelProjectBtn.addEventListener('click', () => {
+    createProjectModal.style.display = 'none';
+  });
+
+  confirmProjectBtn.addEventListener('click', () => {
+    const name = newProjectName.value.trim();
+    const selectedColor = document.querySelector('.color-option.selected');
+    
+    if (name && selectedColor) {
+      const newProject = {
+        id: Date.now(),
+        name: name,
+        color: selectedColor.style.backgroundColor
+      };
+      
+      projects.push(newProject);
+      saveProjects();
+      updateProjectOptions();
+      createProjectModal.style.display = 'none';
+      
+      // Set the new project as the current selection
+      document.getElementById('projectInput').value = name;
+    }
+  });
+
+  // Update project display function to use project colors
+  function updateProjectsDisplay() {
+    const projectsContainer = document.getElementById('projects');
+    if (!projectsContainer) {
+      console.error('Projects container not found');
+      return;
+    }
+    
+    // Clear existing projects
+    projectsContainer.innerHTML = '';
+    
+    // Calculate total hours
+    const totalHours = sessions.reduce((sum, session) => sum + session.hours, 0);
+    
+    // Get project hours
+    const projectHours = calculateHoursByProject();
+    
+    // Create project bars
+    Object.entries(projectHours).forEach(([project, hours]) => {
+      const percentage = (hours / totalHours) * 100;
+      const projectBar = document.createElement('div');
+      projectBar.className = 'project-bar';
+      
+      // Format hours to one decimal place
+      const formattedHours = hours.toFixed(1);
+      
+      projectBar.innerHTML = `
+        <div class="project-header">
+          <span class="project-name">${project}</span>
+          <span class="project-hours">${formattedHours}h</span>
+        </div>
+        <div class="bar-container">
+          <div class="bar-fill" style="width: ${percentage}%"></div>
+        </div>
+      `;
+      projectsContainer.appendChild(projectBar);
+    });
+  }
+
+  // Update the project options list with colors
   function updateProjectOptions() {
     const projectSet = new Set();
     sessions.forEach(session => {
@@ -260,12 +528,16 @@ document.addEventListener('DOMContentLoaded', function() {
         projectSet.add(session.project);
       }
     });
+    projects.forEach(project => {
+      projectSet.add(project.name);
+    });
+    
     const dataList = document.getElementById('projectList');
     if (dataList) {
       dataList.innerHTML = '';
-      projectSet.forEach(project => {
+      projectSet.forEach(projectName => {
         const option = document.createElement('option');
-        option.value = project;
+        option.value = projectName;
         dataList.appendChild(option);
       });
     }
@@ -274,31 +546,178 @@ document.addEventListener('DOMContentLoaded', function() {
   // ===============================
   // Update Display
   // ===============================
+  function calculatePercentageChange(current, previous) {
+    if (previous === 0) return current > 0 ? 100 : 0;
+    return ((current - previous) / previous) * 100;
+  }
+
+  function formatPercentageChange(percentage) {
+    const isPositive = percentage >= 0;
+    const icon = isPositive ? '<i class="fas fa-arrow-up"></i>' : '<i class="fas fa-arrow-down"></i>';
+    const colorClass = isPositive ? 'positive-change' : 'negative-change';
+    return `<span class="${colorClass}">${icon} ${Math.abs(percentage).toFixed(1)}%</span>`;
+  }
+
+  function calculateCurrentStreak() {
+    const now = luxon.DateTime.now().setZone('Australia/Sydney');
+    let currentDate = now.startOf('day');
+    let streak = 0;
+    
+    // Check if there's work logged today
+    const todayHours = calculateTotalForDay(currentDate.toJSDate());
+    if (todayHours === 0) {
+      // If no work today, check if there was work yesterday
+      currentDate = currentDate.minus({ days: 1 });
+      const yesterdayHours = calculateTotalForDay(currentDate.toJSDate());
+      if (yesterdayHours === 0) {
+        return 0; // Break in streak
+      }
+    }
+    
+    // Count backwards from current date
+    while (true) {
+      const dayTotal = calculateTotalForDay(currentDate.toJSDate());
+      if (dayTotal === 0) break;
+      streak++;
+      currentDate = currentDate.minus({ days: 1 });
+    }
+    
+    return streak;
+  }
+
+  function formatTimeDifference(currentMinutes, previousMinutes) {
+    const diff = currentMinutes - previousMinutes;
+    if (diff === 0) return '';
+    
+    const isPositive = diff > 0;
+    const absDiff = Math.abs(diff);
+    const hours = Math.floor(absDiff / 60);
+    const minutes = Math.floor(absDiff % 60);
+    
+    const sign = isPositive ? '+' : '-';
+    const className = isPositive ? 'time-difference positive' : 'time-difference negative';
+    
+    let diffText = '';
+    if (hours > 0) diffText += `${hours}h `;
+    if (minutes > 0) diffText += `${minutes}m`;
+    
+    return `<span class="${className}">${sign}${diffText}</span>`;
+  }
+
   function updateDisplay() {
+    console.log('Updating display...');
+    
+    // Update totals
     const totals = calculateTotals();
-    document.getElementById('totalCommits').textContent = totals.totalCommits;
-    document.getElementById('todayTotal').textContent = formatHoursMinutes(totals.todayTotal);
-    document.getElementById('weekTotal').textContent = formatHoursMinutes(totals.weekTotal);
-    document.getElementById('monthTotal').textContent = formatHoursMinutes(totals.monthTotal);
-    document.getElementById('yearTotal').textContent = formatHoursMinutes(totals.yearTotal);
-  
-    const now = new Date();
-    const startOfWeek = luxon.DateTime.fromJSDate(now).setZone('Australia/Sydney').startOf('week');
-    const startOfLastWeek = startOfWeek.minus({ weeks: 1 });
-    const lastWeekTotal = calculateTotal(startOfLastWeek, startOfWeek);
-  
-    const bestDay = calculateBestDay();
-    const avgWorkDay = calculateAvgWorkDay();
-  
-    document.getElementById('lastWeekTotal').textContent = formatHoursMinutes(lastWeekTotal);
-    document.getElementById('bestDay').textContent = formatHoursMinutes(bestDay);
-    document.getElementById('avgWorkDay').textContent = formatHoursMinutes(avgWorkDay);
-  
-    const projectTotals = calculateHoursByProject();
-    renderProjects(projectTotals);
-    updateProjectOptions();
-  
+    console.log('Calculated totals:', totals);
+
+    // Update stats display
+    document.querySelectorAll('.stat').forEach(stat => {
+      const period = stat.getAttribute('data-period');
+      if (period && totals[period] !== undefined) {
+        const hours = totals[period];
+        const hoursDisplay = Math.floor(hours);
+        const minutes = Math.round((hours - hoursDisplay) * 60);
+        
+        // Update hours/minutes display
+        const valueElement = stat.querySelector('p');
+        if (valueElement) {
+          valueElement.textContent = `${hoursDisplay}h ${minutes}m`;
+        }
+
+        // Calculate and update percentage change
+        const compareElement = stat.querySelector('.compare');
+        if (compareElement) {
+          const now = luxon.DateTime.now().setZone('Australia/Sydney');
+          let previousTotal = 0;
+          
+          if (period === 'day') {
+            const yesterday = now.minus({ days: 1 });
+            previousTotal = calculateTotalForDay(yesterday);
+          } else if (period === 'week') {
+            const lastWeekStart = now.minus({ weeks: 1 }).startOf('week');
+            const lastWeekEnd = lastWeekStart.endOf('week');
+            previousTotal = calculateTotal(lastWeekStart, lastWeekEnd);
+          } else if (period === 'month') {
+            const lastMonthStart = now.minus({ months: 1 }).startOf('month');
+            const lastMonthEnd = lastMonthStart.endOf('month');
+            previousTotal = calculateTotal(lastMonthStart, lastMonthEnd);
+          } else if (period === 'year') {
+            const lastYearStart = now.minus({ years: 1 }).startOf('year');
+            const lastYearEnd = lastYearStart.endOf('year');
+            previousTotal = calculateTotal(lastYearStart, lastYearEnd);
+          }
+
+          const diff = totals[period] - previousTotal;
+          const diffHours = Math.floor(Math.abs(diff));
+          const diffMinutes = Math.round((Math.abs(diff) - diffHours) * 60);
+          const sign = diff >= 0 ? '+' : '-';
+          const className = diff >= 0 ? 'positive' : 'negative';
+
+          compareElement.textContent = `${sign}${diffHours}h ${diffMinutes}m`;
+          compareElement.className = `compare ${className}`;
+        }
+      }
+    });
+
+    // Update calendar
     generateCalendar();
+
+    // Update project bars
+    updateProjectsDisplay();
+
+    // Update last 7 days
+    updateLast7Days();
+
+    console.log('Display update complete');
+  }
+  
+  function updateLast7Days() {
+    const container = document.getElementById('seven-days-content');
+    container.innerHTML = '';
+    
+    const now = luxon.DateTime.now().setZone('Australia/Sydney');
+    
+    for (let i = 0; i < 7; i++) {
+      const date = now.minus({ days: i });
+      const hours = calculateTotalForDay(date.toJSDate());
+      const dayProjects = getDayProjects(date.toJSDate());
+      
+      const row = document.createElement('div');
+      row.className = 'day-row';
+      
+      const dayName = document.createElement('div');
+      dayName.className = 'day-name';
+      dayName.textContent = i === 0 ? 'Today' : 
+                          i === 1 ? 'Yesterday' : 
+                          `${i} days ago`;
+      
+      const projectName = document.createElement('div');
+      projectName.className = 'day-project';
+      projectName.textContent = dayProjects.join(', ') || '--------';
+      
+      const hoursDisplay = document.createElement('div');
+      hoursDisplay.className = 'day-hours';
+      hoursDisplay.textContent = formatHoursMinutes(hours);
+      
+      row.appendChild(dayName);
+      row.appendChild(projectName);
+      row.appendChild(hoursDisplay);
+      container.appendChild(row);
+    }
+  }
+  
+  function getDayProjects(date) {
+    const start = luxon.DateTime.fromJSDate(date).setZone('Australia/Sydney').startOf('day');
+    const end = start.plus({ days: 1 });
+    
+    return [...new Set(sessions
+      .filter(session => {
+        const sessionDate = luxon.DateTime.fromJSDate(session.timestamp).setZone('Australia/Sydney');
+        return sessionDate >= start && sessionDate < end;
+      })
+      .map(session => session.project)
+    )];
   }
   
   // ===============================
@@ -307,6 +726,7 @@ document.addEventListener('DOMContentLoaded', function() {
   let stopwatchInterval = null;
   let stopwatchStartTime = null;
   let stopwatchElapsedTime = 0;
+  let isWorking = false;
   
   function formatTime(ms) {
     let totalSeconds = Math.floor(ms / 1000);
@@ -319,23 +739,32 @@ document.addEventListener('DOMContentLoaded', function() {
   function updateStopwatchDisplay() {
     document.getElementById('stopwatchDisplay').textContent = formatTime(stopwatchElapsedTime);
   }
+
+  const workToggle = document.querySelector('.toggle-switch');
+  const toggleHandle = workToggle.querySelector('.toggle-handle');
   
-  document.getElementById('startButton').addEventListener('click', () => {
-    stopwatchStartTime = Date.now() - stopwatchElapsedTime;
-    stopwatchInterval = setInterval(() => {
-      stopwatchElapsedTime = Date.now() - stopwatchStartTime;
-      updateStopwatchDisplay();
-    }, 1000);
-    document.getElementById('startButton').disabled = true;
-    document.getElementById('stopButton').disabled = false;
-    document.getElementById('logButton').disabled = false;
-  });
-  
-  document.getElementById('stopButton').addEventListener('click', () => {
-    clearInterval(stopwatchInterval);
-    stopwatchInterval = null;
-    document.getElementById('startButton').disabled = false;
-    document.getElementById('stopButton').disabled = true;
+  workToggle.addEventListener('click', () => {
+    isWorking = !isWorking;
+    workToggle.classList.toggle('active');
+    
+    // Update the icon based on state (swapped logic)
+    toggleHandle.innerHTML = isWorking ? 
+      '<i class="fas fa-moon"></i>' : 
+      '<i class="fas fa-briefcase"></i>';
+    
+    if (isWorking) {
+      // Start or resume the timer
+      stopwatchStartTime = Date.now() - stopwatchElapsedTime;
+      stopwatchInterval = setInterval(() => {
+        stopwatchElapsedTime = Date.now() - stopwatchStartTime;
+        updateStopwatchDisplay();
+      }, 1000);
+      document.getElementById('logButton').disabled = false;
+    } else {
+      // Pause the timer
+      clearInterval(stopwatchInterval);
+      stopwatchInterval = null;
+    }
   });
   
   document.getElementById('logButton').addEventListener('click', () => {
@@ -354,13 +783,16 @@ document.addEventListener('DOMContentLoaded', function() {
     sessions.push(newSession);
     saveSessions();
     updateDisplay();
+    
+    // Reset everything
     clearInterval(stopwatchInterval);
     stopwatchInterval = null;
     stopwatchElapsedTime = 0;
     updateStopwatchDisplay();
-    document.getElementById('startButton').disabled = false;
-    document.getElementById('stopButton').disabled = true;
     document.getElementById('logButton').disabled = true;
+    workToggle.classList.remove('active');
+    toggleHandle.innerHTML = '<i class="fas fa-moon"></i>';
+    isWorking = false;
   });
   
   // ===============================
@@ -401,21 +833,30 @@ document.addEventListener('DOMContentLoaded', function() {
   
   async function loadAchievements() {
     try {
-      const res = await fetch('/achievements');
-      achievements = await res.json();
+      const response = await fetch('http://localhost:3000/achievements.json');
+      achievements = await response.json();
       renderAchievements();
     } catch (err) {
       console.error("Error loading achievements:", err);
+      achievements = [];
     }
   }
   
   async function saveAchievements() {
     try {
-      await fetch('/achievements', {
+      const response = await fetch('http://localhost:3000/achievements.json', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json'
+        },
         body: JSON.stringify(achievements)
       });
+
+      if (!response.ok) {
+        throw new Error('Failed to save achievements');
+      }
+
+      console.log("Achievements saved successfully");
     } catch (err) {
       console.error("Error saving achievements:", err);
     }
@@ -427,7 +868,8 @@ document.addEventListener('DOMContentLoaded', function() {
   const notesDisplay = document.getElementById('notesDisplay');
   const achievementsSidebar = document.getElementById('achievementsSidebar');
   
-  noteDateInput.value = new Date().toISOString().split('T')[0];
+  // Initialize date input with current Sydney date
+  noteDateInput.value = getSydneyNow().toISODate();
   
   function getSydneyNow() {
     return luxon.DateTime.now().setZone('Australia/Sydney');
@@ -437,7 +879,12 @@ document.addEventListener('DOMContentLoaded', function() {
     const dateValue = noteDateInput.value.trim();
     const noteText = noteInput.value.trim();
     if (!noteText) return;
-    const dateString = dateValue || getSydneyNow().toISODate();
+    
+    // Get current Sydney time
+    const sydneyNow = getSydneyNow();
+    // Use provided date or current Sydney date
+    const dateString = dateValue || sydneyNow.toISODate();
+    
     const newAchievement = {
       id: Date.now(),
       dateString,
@@ -648,8 +1095,8 @@ document.addEventListener('DOMContentLoaded', function() {
   // ===============================
   // Initialization
   // ===============================
-  setRandomQuote();
   loadSessions();
   loadAchievements();
+  loadProjects();
   document.getElementById('dateInput').value = new Date().toISOString().split('T')[0];
 });

@@ -1,123 +1,94 @@
 const express = require('express');
-const fs = require('fs');
+const fs = require('fs').promises;
 const path = require('path');
 const app = express();
+const port = 3000;
 
+// Middleware to parse JSON bodies
 app.use(express.json());
-// Serve static files from the current directory
-app.use(express.static(__dirname));
 
-// Helper functions for reading and writing JSON files
-function readJSON(filePath, callback) {
-  fs.readFile(filePath, (err, data) => {
-    if (err) return callback(err);
-    try {
-      const json = JSON.parse(data);
-      callback(null, json);
-    } catch (parseErr) {
-      callback(parseErr);
-    }
-  });
-}
+// Serve static files from current directory
+app.use(express.static('.'));
 
-function writeJSON(filePath, data, callback) {
-  fs.writeFile(filePath, JSON.stringify(data, null, 2), callback);
-}
-
-// ===============================
-// Endpoints for Work Sessions (/data)
-// ===============================
-app.get('/data', (req, res) => {
-  const dataPath = path.join(__dirname, 'data.json');
-  fs.access(dataPath, fs.constants.F_OK, err => {
-    if (err) {
-      console.log('GET /data: data.json not found, returning empty array.');
-      return res.json([]);
-    }
-    readJSON(dataPath, (err, jsonData) => {
-      if (err) {
-        console.error('GET /data: Error parsing data.json', err);
-        return res.json([]);
-      }
-      console.log('GET /data: Returning data:', jsonData);
-      res.json(jsonData);
-    });
-  });
-});
-
-app.post('/data', (req, res) => {
-  const dataPath = path.join(__dirname, 'data.json');
-  console.log('POST /data: Received data:', req.body);
-  writeJSON(dataPath, req.body, err => {
-    if (err) {
-      console.error('POST /data: Error saving data', err);
-      res.status(500).send('Error saving data');
+// GET /data.json - Load sessions
+app.get('/data.json', async (req, res) => {
+  try {
+    const data = await fs.readFile('data.json', 'utf8');
+    res.json(JSON.parse(data));
+  } catch (err) {
+    if (err.code === 'ENOENT') {
+      // File doesn't exist, return empty array
+      res.json([]);
     } else {
-      console.log('POST /data: Data saved successfully.');
-      res.send('Data saved');
+      res.status(500).json({ error: 'Failed to read data.json' });
     }
-  });
+  }
 });
 
-// ===============================
-// Endpoints for Achievements (/achievements)
-// ===============================
-app.get('/achievements', (req, res) => {
-  const achPath = path.join(__dirname, 'achievements.json');
-  fs.access(achPath, fs.constants.F_OK, err => {
-    if (err) {
-      console.log('GET /achievements: achievements.json not found, returning empty array.');
-      return res.json([]);
-    }
-    readJSON(achPath, (err, jsonData) => {
-      if (err) {
-        console.error('GET /achievements: Error parsing achievements.json', err);
-        return res.json([]);
-      }
-      console.log('GET /achievements: Returning data:', jsonData);
-      res.json(jsonData);
-    });
-  });
+// POST /data.json - Save sessions
+app.post('/data.json', async (req, res) => {
+  try {
+    await fs.writeFile('data.json', JSON.stringify(req.body, null, 2));
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to write data.json' });
+  }
 });
 
-app.post('/achievements', (req, res) => {
-  const achPath = path.join(__dirname, 'achievements.json');
-  console.log('POST /achievements: Received data:', req.body);
-
-  // Read the existing achievements file first
-  fs.readFile(achPath, (readErr, data) => {
-    let existingAchievements = [];
-    if (!readErr) {
-      try {
-        existingAchievements = JSON.parse(data);
-      } catch (parseErr) {
-        console.error('Error parsing existing achievements:', parseErr);
-      }
+// GET /achievements.json - Load achievements
+app.get('/achievements.json', async (req, res) => {
+  try {
+    const data = await fs.readFile('achievements.json', 'utf8');
+    res.json(JSON.parse(data));
+  } catch (err) {
+    if (err.code === 'ENOENT') {
+      // File doesn't exist, return empty array
+      res.json([]);
+    } else {
+      res.status(500).json({ error: 'Failed to read achievements.json' });
     }
-    
-    // Merge existing achievements with new achievements from the request.
-    // We assume req.body is an array (the complete set from the client).
-    // To avoid duplicates, merge based on the unique id.
-    const mergedAchievements = [...existingAchievements];
-
-    req.body.forEach(newAch => {
-      // If this achievement doesn't already exist, add it.
-      if (!mergedAchievements.some(existingAch => existingAch.id === newAch.id)) {
-        mergedAchievements.push(newAch);
-      }
-    });
-
-    writeJSON(achPath, mergedAchievements, (writeErr) => {
-      if (writeErr) {
-        console.error('POST /achievements: Error saving achievements', writeErr);
-        res.status(500).send('Error saving achievements');
-      } else {
-        console.log('POST /achievements: Achievements merged and saved successfully.');
-        res.send('Achievements saved');
-      }
-    });
-  });
+  }
 });
 
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`Server running on http://localhost:${PORT}`));
+// POST /achievements.json - Save achievements
+app.post('/achievements.json', async (req, res) => {
+  try {
+    await fs.writeFile('achievements.json', JSON.stringify(req.body, null, 2));
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to write achievements.json' });
+  }
+});
+
+// GET /projects.json - Load projects
+app.get('/projects.json', async (req, res) => {
+  try {
+    const data = await fs.readFile('projects.json', 'utf8');
+    res.json(JSON.parse(data));
+  } catch (err) {
+    if (err.code === 'ENOENT') {
+      // Return default projects if file doesn't exist
+      res.json([
+        { id: 1, name: 'Assassination of Mahmoud al-Mabhouh (research)', color: '#FF6B6B' },
+        { id: 2, name: 'general', color: '#4ECDC4' },
+        { id: 3, name: 'The Pope Video', color: '#45B7D1' }
+      ]);
+    } else {
+      res.status(500).json({ error: 'Failed to read projects.json' });
+    }
+  }
+});
+
+// POST /projects.json - Save projects
+app.post('/projects.json', async (req, res) => {
+  try {
+    await fs.writeFile('projects.json', JSON.stringify(req.body, null, 2));
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to write projects.json' });
+  }
+});
+
+app.listen(port, () => {
+  console.log(`Server running at http://localhost:${port}`);
+});
