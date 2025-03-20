@@ -781,6 +781,7 @@
       display: flex;
       gap: 20px;
       margin-bottom: 30px;
+      max-width: 960px;
     }
 
     #last-seven-days,
@@ -790,6 +791,7 @@
       border-radius: 8px;
       padding: 20px;
       flex: 1;
+      min-width: 0; /* Allows flex items to shrink below content size */
     }
 
     #last-seven-days h2,
@@ -804,9 +806,10 @@
     .month-row {
       display: flex;
       justify-content: space-between;
-      align-items: center;
+      align-items: flex-start;
       padding: 12px 0;
       border-bottom: 1px solid #333;
+      gap: 10px;
     }
 
     .day-row:last-child,
@@ -820,18 +823,18 @@
       font-size: 14px;
       font-weight: 500;
       width: 100px;
+      flex-shrink: 0;
     }
 
     .day-project,
     .month-project {
       color: #666;
       font-size: 14px;
-      text-align: left;
       flex: 1;
-      margin: 0 20px;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
+      min-width: 0;
+      word-wrap: break-word;
+      white-space: normal;
+      line-height: 1.4;
     }
 
     .day-hours,
@@ -841,6 +844,7 @@
       font-weight: 500;
       width: 80px;
       text-align: right;
+      flex-shrink: 0;
     }
   </style>
 </head>
@@ -926,7 +930,7 @@
       <div class="stat">
         <i class="fas fa-code-branch"></i>
         <p id="totalCommits">20</p>
-        <span class="label">Total Commits</span>
+        <span class="label">Total Sessions</span>
       </div>
       <div class="stat">
         <i class="fas fa-calendar-day"></i>

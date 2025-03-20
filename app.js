@@ -614,6 +614,10 @@ document.addEventListener('DOMContentLoaded', function() {
     const totals = calculateTotals();
     console.log('Calculated totals:', totals);
 
+    // Calculate total sessions
+    const totalSessions = sessions.length;
+    document.getElementById('totalCommits').textContent = totalSessions;
+
     // Update stats display
     document.querySelectorAll('.stat').forEach(stat => {
       const period = stat.getAttribute('data-period');
@@ -682,33 +686,60 @@ document.addEventListener('DOMContentLoaded', function() {
     
     const now = luxon.DateTime.now().setZone('Australia/Sydney');
     
+    // Create array of last 7 days
+    const days = [];
     for (let i = 0; i < 7; i++) {
       const date = now.minus({ days: i });
-      const hours = calculateTotalForDay(date.toJSDate());
-      const dayProjects = getDayProjects(date.toJSDate());
+      const dayStart = date.startOf('day');
+      const dayEnd = date.endOf('day');
       
+      // Calculate total hours for this day
+      const dayHours = sessions
+        .filter(session => {
+          const sessionTime = luxon.DateTime.fromISO(session.timestamp, { zone: 'Australia/Sydney' });
+          return sessionTime >= dayStart && sessionTime <= dayEnd;
+        })
+        .reduce((sum, session) => sum + session.hours, 0);
+      
+      // Get unique projects for this day
+      const dayProjects = [...new Set(sessions
+        .filter(session => {
+          const sessionTime = luxon.DateTime.fromISO(session.timestamp, { zone: 'Australia/Sydney' });
+          return sessionTime >= dayStart && sessionTime <= dayEnd;
+        })
+        .map(session => session.project)
+      )];
+      
+      days.push({
+        date,
+        hours: dayHours,
+        projects: dayProjects
+      });
+    }
+    
+    // Create rows for each day
+    days.forEach((day, index) => {
       const row = document.createElement('div');
       row.className = 'day-row';
       
       const dayName = document.createElement('div');
       dayName.className = 'day-name';
-      dayName.textContent = i === 0 ? 'Today' : 
-                          i === 1 ? 'Yesterday' : 
-                          `${i} days ago`;
+      // Use "Today" for current day, actual day name for others
+      dayName.textContent = index === 0 ? 'Today' : day.date.toFormat('cccc');
       
       const projectName = document.createElement('div');
       projectName.className = 'day-project';
-      projectName.textContent = dayProjects.join(', ') || '--------';
+      projectName.textContent = day.projects.join(', ') || '--------';
       
       const hoursDisplay = document.createElement('div');
       hoursDisplay.className = 'day-hours';
-      hoursDisplay.textContent = formatHoursMinutes(hours);
+      hoursDisplay.textContent = formatHoursMinutes(day.hours);
       
       row.appendChild(dayName);
       row.appendChild(projectName);
       row.appendChild(hoursDisplay);
       container.appendChild(row);
-    }
+    });
   }
   
   function getDayProjects(date) {
@@ -1032,6 +1063,7 @@ document.addEventListener('DOMContentLoaded', function() {
       e.preventDefault();
       currentMonthFilter = 'all';
       renderAchievements();
+    });
     });
     allLi.appendChild(allLink);
     ul.appendChild(allLi);
