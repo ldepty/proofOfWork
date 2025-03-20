@@ -266,6 +266,8 @@ document.addEventListener('DOMContentLoaded', function() {
       }
 
       // Create tooltip
+      const tooltip = document.createElement('div');
+      tooltip.className = 'tooltip';
       const formattedDate = date.toLocaleString({ 
         weekday: 'short', 
         month: 'short', 
@@ -273,7 +275,8 @@ document.addEventListener('DOMContentLoaded', function() {
         year: 'numeric'
       });
       const formattedHours = totalHours > 0 ? `${totalHours.toFixed(1)} hours` : 'No hours';
-      dayElement.title = `${formattedDate}\n${formattedHours}`;
+      tooltip.textContent = `${formattedDate}\n${formattedHours}`;
+      dayElement.appendChild(tooltip);
 
       calendarGrid.appendChild(dayElement);
     });
@@ -666,8 +669,9 @@ document.addEventListener('DOMContentLoaded', function() {
     // Update project bars
     updateProjectsDisplay();
 
-    // Update last 7 days
+    // Update last 7 days and year overview
     updateLast7Days();
+    updateYearOverview();
 
     console.log('Display update complete');
   }
@@ -718,6 +722,69 @@ document.addEventListener('DOMContentLoaded', function() {
       })
       .map(session => session.project)
     )];
+  }
+  
+  function updateYearOverview() {
+    const container = document.getElementById('year-overview-content');
+    container.innerHTML = '';
+    
+    const now = luxon.DateTime.now().setZone('Australia/Sydney');
+    const currentYear = now.year;
+    
+    // Create an array of all months in the current year
+    const months = [];
+    for (let month = 1; month <= 12; month++) {
+      const date = luxon.DateTime.fromObject({ year: currentYear, month }, { zone: 'Australia/Sydney' });
+      const monthStart = date.startOf('month');
+      const monthEnd = date.endOf('month');
+      
+      // Calculate total hours for the month
+      const monthHours = sessions
+        .filter(session => {
+          return session.timestamp >= monthStart && session.timestamp <= monthEnd;
+        })
+        .reduce((sum, session) => sum + session.hours, 0);
+      
+      // Only add months that have hours logged
+      if (monthHours > 0) {
+        // Get unique projects for the month
+        const monthProjects = [...new Set(sessions
+          .filter(session => {
+            return session.timestamp >= monthStart && session.timestamp <= monthEnd;
+          })
+          .map(session => session.project)
+        )];
+        
+        months.push({
+          name: date.toFormat('MMMM'),
+          hours: monthHours,
+          projects: monthProjects
+        });
+      }
+    }
+    
+    // Create rows for each month
+    months.forEach(month => {
+      const row = document.createElement('div');
+      row.className = 'month-row';
+      
+      const monthName = document.createElement('div');
+      monthName.className = 'month-name';
+      monthName.textContent = month.name;
+      
+      const projectName = document.createElement('div');
+      projectName.className = 'month-project';
+      projectName.textContent = month.projects.join(', ');
+      
+      const hoursDisplay = document.createElement('div');
+      hoursDisplay.className = 'month-hours';
+      hoursDisplay.textContent = formatHoursMinutes(month.hours);
+      
+      row.appendChild(monthName);
+      row.appendChild(projectName);
+      row.appendChild(hoursDisplay);
+      container.appendChild(row);
+    });
   }
   
   // ===============================
