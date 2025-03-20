@@ -821,76 +821,54 @@ document.addEventListener('DOMContentLoaded', function() {
   // ===============================
   // Stopwatch Functionality
   // ===============================
-  let stopwatchInterval = null;
-  let stopwatchStartTime = null;
-  let stopwatchElapsedTime = 0;
-  let isWorking = false;
-  
-  function formatTime(ms) {
-    let totalSeconds = Math.floor(ms / 1000);
-    let hours = Math.floor(totalSeconds / 3600);
-    let minutes = Math.floor((totalSeconds % 3600) / 60);
-    let seconds = totalSeconds % 60;
-    return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
-  }
-  
-  function updateStopwatchDisplay() {
-    document.getElementById('stopwatchDisplay').textContent = formatTime(stopwatchElapsedTime);
+  let isRunning = false;
+  let startTime;
+  let timerInterval;
+
+  function updateTimer() {
+    if (!isRunning) return;
+    
+    const now = new Date().getTime();
+    const elapsed = now - startTime;
+    
+    const hours = Math.floor(elapsed / (1000 * 60 * 60));
+    const minutes = Math.floor((elapsed % (1000 * 60 * 60)) / (1000 * 60));
+    const seconds = Math.floor((elapsed % (1000 * 60)) / 1000);
+    
+    const display = document.querySelector('.timer-display');
+    display.textContent = `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
   }
 
-  const workToggle = document.querySelector('.toggle-switch');
-  const toggleHandle = workToggle.querySelector('.toggle-handle');
-  
-  workToggle.addEventListener('click', () => {
-    isWorking = !isWorking;
-    workToggle.classList.toggle('active');
+  function toggleTimer() {
+    const toggleSwitch = document.querySelector('.toggle-switch');
+    const toggleHandle = toggleSwitch.querySelector('.toggle-handle i');
+    const workingStatus = document.querySelector('.working-status');
     
-    // Update the icon based on state (swapped logic)
-    toggleHandle.innerHTML = isWorking ? 
-      '<i class="fas fa-moon"></i>' : 
-      '<i class="fas fa-briefcase"></i>';
-    
-    if (isWorking) {
-      // Start or resume the timer
-      stopwatchStartTime = Date.now() - stopwatchElapsedTime;
-      stopwatchInterval = setInterval(() => {
-        stopwatchElapsedTime = Date.now() - stopwatchStartTime;
-        updateStopwatchDisplay();
-      }, 1000);
-      document.getElementById('logButton').disabled = false;
+    if (!isRunning) {
+      // Start timer
+      isRunning = true;
+      startTime = new Date().getTime();
+      timerInterval = setInterval(updateTimer, 1000);
+      toggleHandle.className = 'fas fa-pause';
+      toggleSwitch.classList.add('active');
+      workingStatus.classList.add('active');
     } else {
-      // Pause the timer
-      clearInterval(stopwatchInterval);
-      stopwatchInterval = null;
+      // Stop timer
+      isRunning = false;
+      clearInterval(timerInterval);
+      toggleHandle.className = 'fas fa-play';
+      toggleSwitch.classList.remove('active');
+      workingStatus.classList.remove('active');
     }
-  });
-  
-  document.getElementById('logButton').addEventListener('click', () => {
-    const hoursLogged = stopwatchElapsedTime / (1000 * 60 * 60);
-    const dateInputValue = document.getElementById('dateInput').value;
-    const projectInputValue = document.getElementById('stopwatchProjectInput')?.value.trim() || 'General';
-    let timestamp = getSydneyDate();
-    if (dateInputValue) {
-      timestamp = toSydneyDate(new Date(dateInputValue));
+  }
+
+  // Add event listeners
+  document.querySelector('.toggle-switch').addEventListener('click', toggleTimer);
+  document.querySelector('.log-time-btn').addEventListener('click', () => {
+    if (isRunning) {
+      toggleTimer(); // Stop the timer first
     }
-    const newSession = { 
-      timestamp, 
-      hours: hoursLogged,
-      project: projectInputValue
-    };
-    sessions.push(newSession);
-    saveSessions();
-    updateDisplay();
-    
-    // Reset everything
-    clearInterval(stopwatchInterval);
-    stopwatchInterval = null;
-    stopwatchElapsedTime = 0;
-    updateStopwatchDisplay();
-    document.getElementById('logButton').disabled = true;
-    workToggle.classList.remove('active');
-    toggleHandle.innerHTML = '<i class="fas fa-moon"></i>';
-    isWorking = false;
+    // Add your logging logic here
   });
   
   // ===============================
@@ -1063,7 +1041,6 @@ document.addEventListener('DOMContentLoaded', function() {
       e.preventDefault();
       currentMonthFilter = 'all';
       renderAchievements();
-    });
     });
     allLi.appendChild(allLink);
     ul.appendChild(allLi);
