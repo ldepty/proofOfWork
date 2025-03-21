@@ -145,9 +145,10 @@ document.addEventListener('DOMContentLoaded', function() {
     document.getElementById('yearTotal').textContent = formatHoursMinutes(yearTotal);
 
     // Update total hours in calendar header
+    const totalHours = sessions.reduce((sum, session) => sum + session.hours, 0);
     const totalHoursElement = document.getElementById('total-hours');
     if (totalHoursElement) {
-      totalHoursElement.textContent = `${formatHoursMinutes(yearTotal)} total`;
+      totalHoursElement.textContent = formatHoursMinutes(totalHours);
     }
 
     return {
@@ -299,7 +300,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const totalHours = sessions.reduce((sum, session) => sum + session.hours, 0);
     const totalHoursElement = document.getElementById('total-hours');
     if (totalHoursElement) {
-      totalHoursElement.textContent = `${formatHoursMinutes(totalHours)} total`;
+      totalHoursElement.textContent = formatHoursMinutes(totalHours);
     }
   }
   
@@ -713,19 +714,19 @@ document.addEventListener('DOMContentLoaded', function() {
         .reduce((sum, session) => sum + session.hours, 0);
       
       // Get unique projects for this day with their colors
-      const dayProjects = [...new Set(sessions
+      const dayProjects = Array.from(new Set(sessions
         .filter(session => {
           const sessionTime = luxon.DateTime.fromISO(session.timestamp, { zone: 'Australia/Sydney' });
           return sessionTime >= dayStart && sessionTime <= dayEnd;
         })
-        .map(session => {
-          const projectData = projects.find(p => p.name === session.project);
-          return {
-            name: session.project,
-            color: projectData ? projectData.color : '#9370DB'
-          };
-        })
-      )];
+        .map(session => session.project)
+      )).map(projectName => {
+        const projectData = projects.find(p => p.name === projectName);
+        return {
+          name: projectName,
+          color: projectData ? projectData.color : '#9370DB'
+        };
+      });
       
       days.push({
         date,
@@ -1308,10 +1309,9 @@ document.addEventListener('DOMContentLoaded', function() {
   // ===============================
   // Initialization
   // ===============================
-  // Load projects first, then sessions and achievements
+  // Load projects first, then sessions
   loadProjects().then(() => {
     loadSessions();
-    loadAchievements();
     document.getElementById('dateInput').value = new Date().toISOString().split('T')[0];
   });
 });
