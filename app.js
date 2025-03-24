@@ -915,13 +915,19 @@ document.addEventListener('DOMContentLoaded', function() {
 
   // Update the log time button handler
   document.querySelector('.log-time-btn').addEventListener('click', () => {
+    // Calculate total elapsed time first
+    const totalElapsed = elapsedTime + (isRunning ? (new Date().getTime() - startTime) : 0);
+    const hours = totalElapsed / (1000 * 60 * 60);
+    
+    // Validate the time before proceeding
+    if (totalElapsed === 0 || isNaN(totalElapsed)) {
+      alert('Cannot log zero or invalid time. Please start the timer and log some time first.');
+      return;
+    }
+    
     if (isRunning) {
       toggleTimer(); // Stop the timer first
     }
-    
-    // Calculate total elapsed time
-    const totalElapsed = elapsedTime + (new Date().getTime() - startTime);
-    const hours = totalElapsed / (1000 * 60 * 60);
     
     // Get current project
     const projectInput = document.getElementById('projectInput');
@@ -966,6 +972,12 @@ document.addEventListener('DOMContentLoaded', function() {
     const hoursInputValue = parseFloat(document.getElementById('hoursInput').value) || 0;
     const minutesInputValue = parseFloat(document.getElementById('minutesInput').value) || 0;
     const totalHours = hoursInputValue + minutesInputValue / 60;
+    
+    // Validate the time before proceeding
+    if (totalHours === 0 || isNaN(totalHours)) {
+      alert('Cannot log zero or invalid time. Please enter valid hours or minutes.');
+      return;
+    }
     
     // Create timestamp in Sydney timezone
     const timestamp = dateInputValue 
