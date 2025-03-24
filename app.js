@@ -866,17 +866,19 @@ document.addEventListener('DOMContentLoaded', function() {
   // ===============================
   let isRunning = false;
   let startTime;
+  let elapsedTime = 0;  // This tracks total elapsed time
   let timerInterval;
 
   function updateTimer() {
     if (!isRunning) return;
     
     const now = new Date().getTime();
-    const elapsed = now - startTime;
+    const currentElapsed = now - startTime;
+    const totalElapsed = elapsedTime + currentElapsed;
     
-    const hours = Math.floor(elapsed / (1000 * 60 * 60));
-    const minutes = Math.floor((elapsed % (1000 * 60 * 60)) / (1000 * 60));
-    const seconds = Math.floor((elapsed % (1000 * 60)) / 1000);
+    const hours = Math.floor(totalElapsed / (1000 * 60 * 60));
+    const minutes = Math.floor((totalElapsed % (1000 * 60 * 60)) / (1000 * 60));
+    const seconds = Math.floor((totalElapsed % (1000 * 60)) / 1000);
     
     const display = document.querySelector('.timer-display');
     display.textContent = `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
@@ -899,6 +901,7 @@ document.addEventListener('DOMContentLoaded', function() {
       // Stop timer
       isRunning = false;
       clearInterval(timerInterval);
+      elapsedTime += new Date().getTime() - startTime;  // Add the current session to total elapsed time
       toggleHandle.className = 'fas fa-play';
       toggleSwitch.classList.remove('active');
       workingStatus.classList.remove('active');
@@ -914,10 +917,9 @@ document.addEventListener('DOMContentLoaded', function() {
       toggleTimer(); // Stop the timer first
     }
     
-    // Calculate elapsed time
-    const now = new Date().getTime();
-    const elapsed = now - startTime;
-    const hours = elapsed / (1000 * 60 * 60);
+    // Calculate total elapsed time
+    const totalElapsed = elapsedTime + (new Date().getTime() - startTime);
+    const hours = totalElapsed / (1000 * 60 * 60);
     
     // Get current project
     const projectInput = document.getElementById('projectInput');
@@ -934,9 +936,10 @@ document.addEventListener('DOMContentLoaded', function() {
     sessions.push(newSession);
     saveSessions();
     
-    // Reset timer display
+    // Reset timer display and elapsed time
     const display = document.querySelector('.timer-display');
     display.textContent = '00:00:00';
+    elapsedTime = 0;  // Reset elapsed time
     
     // Clear project input
     projectInput.value = '';
@@ -1309,9 +1312,10 @@ document.addEventListener('DOMContentLoaded', function() {
   // ===============================
   // Initialization
   // ===============================
-  // Load projects first, then sessions
+  // Load projects first, then sessions and achievements
   loadProjects().then(() => {
     loadSessions();
+    loadAchievements();
     document.getElementById('dateInput').value = new Date().toISOString().split('T')[0];
   });
 });

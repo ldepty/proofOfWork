@@ -233,5 +233,30 @@
     "timestamp": "2025-03-21T10:58:27.051+11:00",
     "hours": 0.5147725,
     "project": "Mabhouh (research)"
+  },
+  {
+    "timestamp": "2025-03-21T12:11:01.943+11:00",
+    "hours": 0.6255988888888889,
+    "project": "Mabhouh (research)"
+  },
+  {
+    "timestamp": "2025-03-21T00:00:00.000+11:00",
+    "hours": 1.05,
+    "project": "Mabhouh (packaging)"
+  },
+  {
+    "timestamp": "2025-03-21T14:55:42.279+11:00",
+    "hours": 1.5514008333333333,
+    "project": "Mabhouh (packaging)"
+  },
+  {
+    "timestamp": "2025-03-21T15:18:28.477+11:00",
+    "hours": 0.238875,
+    "project": "Mabhouh (packaging)"
+  },
+  {
+    "timestamp": "2025-03-24T00:00:00.000+11:00",
+    "hours": 0.4166666666666667,
+    "project": "Mabhouh (packaging)"
   }
 ]
