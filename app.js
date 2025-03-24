@@ -43,11 +43,7 @@ document.addEventListener('DOMContentLoaded', function() {
       updateProjectOptions(); // Update project options after loading sessions
       updateAllDisplays();
     } catch (err) {
-      console.error("Detailed error loading sessions:", {
-        message: err.message,
-        stack: err.stack,
-        type: err.name
-      });
+      console.error("Detailed error loading sessions:", err);
       sessions = [];
     }
   }
@@ -659,6 +655,12 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Update totals and stats
     const totals = calculateTotals();
+    
+    // Update total sessions count - use the actual length of sessions array
+    const totalSessionsElement = document.querySelector('#totalCommits');
+    if (totalSessionsElement) {
+        totalSessionsElement.textContent = sessions.length;
+    }
     
     // Update stats display with minutes
     document.querySelectorAll('.stat').forEach(stat => {
