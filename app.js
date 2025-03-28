@@ -882,8 +882,14 @@ document.addEventListener('DOMContentLoaded', function() {
     const minutes = Math.floor((totalElapsed % (1000 * 60 * 60)) / (1000 * 60));
     const seconds = Math.floor((totalElapsed % (1000 * 60)) / 1000);
     
+    const timeDisplay = `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+    
+    // Update timer display
     const display = document.querySelector('.timer-display');
-    display.textContent = `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+    display.textContent = timeDisplay;
+    
+    // Update browser tab title
+    document.title = `${timeDisplay} - Time Tracker`;
   }
 
   function toggleTimer() {
@@ -907,6 +913,8 @@ document.addEventListener('DOMContentLoaded', function() {
       toggleHandle.className = 'fas fa-play';
       toggleSwitch.classList.remove('active');
       workingStatus.classList.remove('active');
+      // Reset browser tab title when timer stops
+      document.title = 'Time Tracker';
     }
   }
 

@@ -258,5 +258,40 @@
     "timestamp": "2025-03-24T00:00:00.000+11:00",
     "hours": 0.4166666666666667,
     "project": "Mabhouh (packaging)"
+  },
+  {
+    "timestamp": "2025-03-24T16:21:29.779+11:00",
+    "hours": 0.3038786111111111,
+    "project": "Mabhouh (packaging)"
+  },
+  {
+    "timestamp": "2025-03-26T14:29:50.923+11:00",
+    "hours": 0.32641611111111113,
+    "project": "Mabouh (script)"
+  },
+  {
+    "timestamp": "2025-03-27T14:53:35.732+11:00",
+    "hours": 0.7895502777777778,
+    "project": "Mabouh (script)"
+  },
+  {
+    "timestamp": "2025-03-27T15:14:39.871+11:00",
+    "hours": 0.14225333333333334,
+    "project": "Mabouh (script)"
+  },
+  {
+    "timestamp": "2025-03-27T15:33:09.831+11:00",
+    "hours": 0.23139916666666666,
+    "project": "Mabhouh (packaging)"
+  },
+  {
+    "timestamp": "2025-03-28T10:39:08.079+11:00",
+    "hours": 1.2048611111111112,
+    "project": "Mabouh (script)"
+  },
+  {
+    "timestamp": "2025-03-28T13:43:19.333+11:00",
+    "hours": 1.5208627777777777,
+    "project": "Mabouh (script)"
   }
 ]
