@@ -697,13 +697,14 @@
       gap: 15px;
     }
     .project-selector input {
-      flex: 1;
+      width: 100%;
       background-color: #2a2a2a;
       border: none;
       border-radius: 6px;
       color: #fff;
       font-size: 16px;
       padding: 12px 15px;
+      box-sizing: border-box;
     }
     .project-selector input:focus {
       outline: none;
@@ -720,9 +721,16 @@
       display: flex;
       align-items: center;
       gap: 8px;
+      white-space: nowrap;
     }
     .project-selector button:hover {
       background-color: #5600b3;
+    }
+
+    /* Update the task dropdown to match full width */
+    #taskDropdown {
+      width: 100%;
+      box-sizing: border-box;
     }
 
     /* Create Project Modal */
@@ -1111,7 +1119,7 @@
 
     <!-- Project Selector -->
     <div class="project-selector">
-      <div style="flex: 1; position: relative;">
+      <div style="width: 80%; position: relative;">
         <input type="text" id="projectInput" placeholder="What are you working on?">
         <div id="taskDropdown" style="display: none; position: absolute; top: 100%; left: 0; right: 0; background-color: #1a1a1a; border: 1px solid #333; border-radius: 6px; margin-top: 4px; max-height: 300px; overflow-y: auto; z-index: 1000;">
           <!-- Tasks will be populated here -->
