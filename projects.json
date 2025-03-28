@@ -1,22 +1,36 @@
 [
   {
-    "id": 1,
-    "name": "Mabhouh (research)",
-    "color": "#ED7824"
-  },
-  {
-    "id": 3,
+    "id": "the-pope",
     "name": "The Pope",
-    "color": "#45B7D1"
+    "color": "#45B7D1",
+    "tasks": [
+      {
+        "id": "script-edit",
+        "name": "Script & Edit",
+        "color": "rgb(89,38,165)"
+      }
+    ]
   },
   {
-    "id": 1742519905655,
-    "name": "Mabhouh (packaging)",
-    "color": "rgb(241, 196, 15)"
-  },
-  {
-    "id": 1742958547286,
-    "name": "Mabouh (script)",
-    "color": "rgb(150, 206, 180)"
+    "id": "mabhouh-assassination",
+    "name": "Mabhouh Assassination",
+    "color": "#ED7824",
+    "tasks": [
+      {
+        "id": "mabhouh-research",
+        "name": "Mabhouh (research)",
+        "color": "rgb(89,38,165)"
+      },
+      {
+        "id": "mabhouh-packaging",
+        "name": "Mabhouh (packaging)",
+        "color": "rgb(241, 196, 15)"
+      },
+      {
+        "id": "mabhouh-script",
+        "name": "Mabhouh (script)",
+        "color": "rgb(150, 206, 180)"
+      }
+    ]
   }
 ]

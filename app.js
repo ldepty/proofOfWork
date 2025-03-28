@@ -464,11 +464,36 @@ document.addEventListener('DOMContentLoaded', function() {
   const cancelProjectBtn = document.getElementById('cancelProjectBtn');
   const confirmProjectBtn = document.getElementById('confirmProjectBtn');
   const newProjectName = document.getElementById('newProjectName');
+  const itemTypeSelect = document.getElementById('itemType');
+  const projectSelect = document.getElementById('projectSelect');
+  const parentProjectSelect = document.getElementById('parentProject');
+
+  // Show/hide parent project select based on item type
+  itemTypeSelect.addEventListener('change', () => {
+    projectSelect.style.display = itemTypeSelect.value === 'task' ? 'block' : 'none';
+    // Update parent project options when switching to task
+    if (itemTypeSelect.value === 'task') {
+      updateParentProjectOptions();
+    }
+  });
+
+  function updateParentProjectOptions() {
+    parentProjectSelect.innerHTML = '';
+    projects.forEach(project => {
+      const option = document.createElement('option');
+      option.value = project.id;
+      option.textContent = project.name;
+      parentProjectSelect.appendChild(option);
+    });
+  }
 
   createProjectBtn.addEventListener('click', () => {
     createProjectModal.style.display = 'block';
     newProjectName.value = '';
+    itemTypeSelect.value = 'project';
+    projectSelect.style.display = 'none';
     document.querySelectorAll('.color-option').forEach(opt => opt.classList.remove('selected'));
+    updateParentProjectOptions();
   });
 
   cancelProjectBtn.addEventListener('click', () => {
@@ -478,46 +503,75 @@ document.addEventListener('DOMContentLoaded', function() {
   confirmProjectBtn.addEventListener('click', () => {
     const name = newProjectName.value.trim();
     const selectedColor = document.querySelector('.color-option.selected');
+    const isTask = itemTypeSelect.value === 'task';
     
     if (name && selectedColor) {
-      const newProject = {
-        id: Date.now(),
-        name: name,
-        color: selectedColor.style.backgroundColor
-      };
+      if (isTask) {
+        const parentProjectId = parentProjectSelect.value;
+        const parentProject = projects.find(p => p.id === parentProjectId);
+        
+        if (parentProject) {
+          const newTask = {
+            id: `${parentProjectId}-${Date.now()}`,
+            name: name,
+            color: selectedColor.style.backgroundColor
+          };
+          
+          if (!parentProject.tasks) {
+            parentProject.tasks = [];
+          }
+          
+          parentProject.tasks.push(newTask);
+        }
+      } else {
+        const newProject = {
+          id: Date.now().toString(),
+          name: name,
+          color: selectedColor.style.backgroundColor,
+          tasks: []
+        };
+        
+        projects.push(newProject);
+      }
       
-      projects.push(newProject);
       saveProjects();
       updateProjectOptions();
       createProjectModal.style.display = 'none';
       
-      // Set the new project as the current selection
+      // Set the new project/task as the current selection
       document.getElementById('projectInput').value = name;
     }
   });
 
-  // Update project display function to use project colors
+  // Update project display function to show tasks under projects
   function updateProjects() {
     const projectsContainer = document.getElementById('projects');
-    projectsContainer.innerHTML = '<h2>Projects</h2>';  // Add the title
+    projectsContainer.innerHTML = '<h2>Projects</h2>';
     
     // Get total hours across all projects for percentage calculation
-    const totalHours = Object.values(projects).reduce((sum, project) => {
-      const projectHours = sessions
-        .filter(session => session.project === project.name)
-        .reduce((total, session) => total + session.hours, 0);
+    const totalHours = projects.reduce((sum, project) => {
+      const projectHours = project.tasks.reduce((taskSum, task) => {
+        const taskHours = sessions
+          .filter(session => session.project === task.name)
+          .reduce((total, session) => total + session.hours, 0);
+        return taskSum + taskHours;
+      }, 0);
       return sum + projectHours;
     }, 0);
 
     // Create and append project bars
     projects.forEach(project => {
-      const projectHours = sessions
-        .filter(session => session.project === project.name)
-        .reduce((sum, session) => sum + session.hours, 0);
+      const projectHours = project.tasks.reduce((sum, task) => {
+        const taskHours = sessions
+          .filter(session => session.project === task.name)
+          .reduce((total, session) => total + session.hours, 0);
+        return sum + taskHours;
+      }, 0);
       
       if (projectHours > 0) {
         const percentage = (projectHours / totalHours) * 100;
         
+        // Create project header
         const projectBar = document.createElement('div');
         projectBar.className = 'project-bar';
         
@@ -535,20 +589,51 @@ document.addEventListener('DOMContentLoaded', function() {
         `;
         
         projectsContainer.appendChild(projectBar);
+
+        // Add tasks under project
+        project.tasks.forEach(task => {
+          const taskHours = sessions
+            .filter(session => session.project === task.name)
+            .reduce((sum, session) => sum + session.hours, 0);
+
+          if (taskHours > 0) {
+            const taskBar = document.createElement('div');
+            taskBar.className = 'project-bar task-bar';
+            
+            const taskPercentage = (taskHours / projectHours) * 100;
+            
+            taskBar.innerHTML = `
+              <div class="project-header">
+                <div class="project-name">
+                  <span class="project-color-dot" style="background-color: ${task.color}"></span>
+                  ${task.name}
+                </div>
+                <div class="project-hours">${formatHoursMinutes(taskHours)}</div>
+              </div>
+              <div class="bar-container">
+                <div class="bar-fill" style="width: ${taskPercentage}%; background-color: ${task.color}"></div>
+              </div>
+            `;
+            
+            projectsContainer.appendChild(taskBar);
+          }
+        });
       }
     });
   }
 
-  // Update the project options list with colors
+  // Update the project options list with tasks
   function updateProjectOptions() {
     const projectSet = new Set();
     
-    // Add all existing project names
+    // Add all task names from projects
     projects.forEach(project => {
-      projectSet.add(project.name);
+      project.tasks.forEach(task => {
+        projectSet.add(task.name);
+      });
     });
     
-    // Add all project names from sessions
+    // Add all project names from sessions (for backward compatibility)
     sessions.forEach(session => {
       if (session.project) {
         projectSet.add(session.project);
@@ -1340,4 +1425,75 @@ document.addEventListener('DOMContentLoaded', function() {
     loadAchievements();
     document.getElementById('dateInput').value = new Date().toISOString().split('T')[0];
   });
+
+  // Project input and dropdown handling
+  const projectInput = document.getElementById('projectInput');
+  const taskDropdown = document.getElementById('taskDropdown');
+
+  // Show dropdown when input is focused
+  projectInput.addEventListener('focus', () => {
+    updateTaskDropdown();
+    taskDropdown.style.display = 'block';
+  });
+
+  // Hide dropdown when clicking outside
+  document.addEventListener('click', (e) => {
+    if (!projectInput.contains(e.target) && !taskDropdown.contains(e.target)) {
+      taskDropdown.style.display = 'none';
+    }
+  });
+
+  // Filter tasks as user types
+  projectInput.addEventListener('input', () => {
+    updateTaskDropdown();
+  });
+
+  function updateTaskDropdown() {
+    const searchTerm = projectInput.value.toLowerCase();
+    taskDropdown.innerHTML = '';
+
+    projects.forEach(project => {
+      const matchingTasks = project.tasks.filter(task => 
+        task.name.toLowerCase().includes(searchTerm)
+      );
+
+      if (matchingTasks.length > 0) {
+        const projectGroup = document.createElement('div');
+        projectGroup.className = 'task-group';
+
+        const projectName = document.createElement('div');
+        projectName.className = 'project-name';
+        projectName.textContent = project.name;
+        projectGroup.appendChild(projectName);
+
+        matchingTasks.forEach(task => {
+          const taskItem = document.createElement('div');
+          taskItem.className = 'task-item';
+
+          const taskColor = document.createElement('span');
+          taskColor.className = 'task-color';
+          taskColor.style.backgroundColor = task.color;
+
+          const taskName = document.createElement('span');
+          taskName.textContent = task.name;
+
+          taskItem.appendChild(taskColor);
+          taskItem.appendChild(taskName);
+
+          // Select task when clicked
+          taskItem.addEventListener('click', () => {
+            projectInput.value = task.name;
+            taskDropdown.style.display = 'none';
+          });
+
+          projectGroup.appendChild(taskItem);
+        });
+
+        taskDropdown.appendChild(projectGroup);
+      }
+    });
+
+    // Show/hide dropdown based on content
+    taskDropdown.style.display = taskDropdown.children.length > 0 ? 'block' : 'none';
+  }
 });
