@@ -1,17 +1,5 @@
 [
-  {
-    "id": "the-pope",
-    "name": "The Pope",
-    "color": "#45B7D1",
-    "tasks": [
-      {
-        "id": "script-edit",
-        "name": "Script & Edit",
-        "color": "rgb(89,38,165)"
-      }
-    ]
-  },
-  {
+   {
     "id": "mabhouh-assassination",
     "name": "Mabhouh Assassination",
     "color": "#ED7824",
@@ -30,6 +18,18 @@
         "id": "mabhouh-script",
         "name": "Mabhouh (script)",
         "color": "rgb(150, 206, 180)"
+      }
+    ]
+  },
+  {
+    "id": "the-pope",
+    "name": "The Pope",
+    "color": "#45B7D1",
+    "tasks": [
+      {
+        "id": "the-pope",
+        "name": "The Pope",
+        "color": "rgb(167,187,236)"
       }
     ]
   }

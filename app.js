@@ -276,7 +276,9 @@ document.addEventListener('DOMContentLoaded', function() {
       
       let tooltipContent = `${formattedDate}\n`;
       if (totalHours > 0) {
-        tooltipContent += `${totalHours.toFixed(1)} hours\n`;
+        const hours = Math.floor(totalHours);
+        const minutes = Math.round((totalHours - hours) * 60);
+        tooltipContent += `${hours}h ${minutes}m\n`;
         if (dayProjects.length > 0) {
           tooltipContent += dayProjects.join(', ');
         }
@@ -667,48 +669,33 @@ document.addEventListener('DOMContentLoaded', function() {
   }
 
   function calculateCurrentStreak() {
+    // Get current time in Sydney
     const now = luxon.DateTime.now().setZone('Australia/Sydney');
     let currentDate = now.startOf('day');
     let streak = 0;
     
+    // Get all dates with sessions and convert them to date strings for easy comparison
+    const datesWithSessions = new Set(
+      sessions.map(session => 
+        session.timestamp.startOf('day').toISODate()
+      )
+    );
+
     // Check if there's work logged today
-    const todayHours = sessions
-      .filter(session => {
-        const sessionDate = session.timestamp;
-        return sessionDate >= currentDate.startOf('day') && 
-               sessionDate <= currentDate.endOf('day');
-      })
-      .reduce((sum, session) => sum + session.hours, 0);
-
-    // If no work today, check yesterday
-    if (todayHours === 0) {
-      const yesterday = currentDate.minus({ days: 1 });
-      const yesterdayHours = sessions
-        .filter(session => {
-          const sessionDate = session.timestamp;
-          return sessionDate >= yesterday.startOf('day') && 
-                 sessionDate <= yesterday.endOf('day');
-        })
-        .reduce((sum, session) => sum + session.hours, 0);
-
-      if (yesterdayHours === 0) {
-        return 0; // Break in streak if no work yesterday either
+    if (datesWithSessions.has(currentDate.toISODate())) {
+      streak = 1;
+      currentDate = currentDate.minus({ days: 1 });
+    } else {
+      // If no work today, check yesterday
+      currentDate = currentDate.minus({ days: 1 });
+      if (!datesWithSessions.has(currentDate.toISODate())) {
+        return 0; // No work yesterday either, streak is 0
       }
-      // Start counting from yesterday if we have work then
-      currentDate = yesterday;
+      streak = 1; // Start counting from yesterday
     }
     
-    // Count backwards from current date
-    while (true) {
-      const dayHours = sessions
-        .filter(session => {
-          const sessionDate = session.timestamp;
-          return sessionDate >= currentDate.startOf('day') && 
-                 sessionDate <= currentDate.endOf('day');
-        })
-        .reduce((sum, session) => sum + session.hours, 0);
-
-      if (dayHours === 0) break;
+    // Count backwards until we find a day without sessions
+    while (datesWithSessions.has(currentDate.toISODate())) {
       streak++;
       currentDate = currentDate.minus({ days: 1 });
     }
@@ -741,10 +728,16 @@ document.addEventListener('DOMContentLoaded', function() {
     // Update totals and stats
     const totals = calculateTotals();
     
-    // Update total sessions count - use the actual length of sessions array
+    // Update total sessions count
     const totalSessionsElement = document.querySelector('#totalCommits');
     if (totalSessionsElement) {
-        totalSessionsElement.textContent = sessions.length;
+      totalSessionsElement.textContent = sessions.length;
+    }
+    
+    // Update current streak
+    const currentStreakElement = document.querySelector('#currentStreak');
+    if (currentStreakElement) {
+      currentStreakElement.textContent = calculateCurrentStreak();
     }
     
     // Update stats display with minutes
