@@ -1,5 +1,5 @@
 [
-   {
+  {
     "id": "mabhouh-assassination",
     "name": "Mabhouh Assassination",
     "color": "#ED7824",
@@ -18,6 +18,11 @@
         "id": "mabhouh-script",
         "name": "Mabhouh (script)",
         "color": "rgb(150, 206, 180)"
+      },
+      {
+        "id": "mabhouh-assassination-1743480791997",
+        "name": "Mabhouh (pre-edit prep)",
+        "color": "rgb(255, 153, 255)"
       }
     ]
   },
