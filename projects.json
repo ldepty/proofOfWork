@@ -1,45 +1,72 @@
 [
   {
+    "id": "1746400912222",
+    "name": "China’s Mole Hunt",
+    "color": "rgb(255, 99, 71)",
+    "tasks": [
+      {
+        "id": "1746400912222-1746400973616",
+        "name": "China’s Mole Hunt - (idea selection)",
+        "color": "rgb(255, 99, 71)"
+      },
+      {
+        "id": "1746400912222-1746405812674",
+        "name": "China’s Mole Hunt - (research)",
+        "color": "rgb(255, 99, 71)"
+      },
+      {
+        "id": "1746400912222-1746416583588",
+        "name": "China’s Mole Hunt - (packaging)",
+        "color": "rgb(255, 99, 71)"
+      },
+      {
+        "id": "1746400912222-1747019746195",
+        "name": "China’s Mole Hunt - (script)",
+        "color": "rgb(231, 76, 60)"
+      }
+    ]
+  },
+  {
     "id": "mabhouh-assassination",
     "name": "Mabhouh Assassination",
-    "color": "#ED7824",
+    "color": "rgb(15, 162, 251)",
     "tasks": [
       {
         "id": "mabhouh-research",
         "name": "Mabhouh (research)",
-        "color": "rgb(89,38,165)"
+        "color": "rgb(15, 162, 251)"
       },
       {
         "id": "mabhouh-packaging",
         "name": "Mabhouh (packaging)",
-        "color": "rgb(241, 196, 15)"
+        "color": "rgb(15, 162, 251)"
       },
       {
         "id": "mabhouh-script",
         "name": "Mabhouh (script)",
-        "color": "rgb(150, 206, 180)"
+        "color": "rgb(15, 162, 251)"
       },
       {
         "id": "mabhouh-assassination-1743480791997",
         "name": "Mabhouh (pre-edit prep)",
-        "color": "rgb(255, 153, 255)"
+        "color": "rgb(15, 162, 251)"
       },
       {
         "id": "mabhouh-assassination-1743733985163",
         "name": "Mabhouh (edit)",
-        "color": "rgb(231, 76, 60)"
+        "color": "rgb(15, 162, 251)"
       }
     ]
   },
   {
     "id": "the-pope",
     "name": "The Pope",
-    "color": "#45B7D1",
+    "color": "rgb(60, 179, 113)",
     "tasks": [
       {
         "id": "the-pope",
         "name": "The Pope",
-        "color": "rgb(167,187,236)"
+        "color": "rgb(60, 179, 113)"
       }
     ]
   }
