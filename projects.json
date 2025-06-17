@@ -1,5 +1,22 @@
 [
   {
+    "id": "1749948432885",
+    "name": "Operation Fast & Furious",
+    "color": "rgb(150, 206, 180)",
+    "tasks": [
+      {
+        "id": "1749948432885-1749948450546",
+        "name": "Idea selection",
+        "color": "rgb(150, 206, 180)"
+      },
+      {
+        "id": "1749948432885-1750052732298",
+        "name": "Packaging",
+        "color": "rgb(150, 206, 180)"
+      }
+    ]
+  },
+  {
     "id": "1746400912222",
     "name": "China’s Mole Hunt",
     "color": "rgb(255, 99, 71)",
@@ -22,6 +39,31 @@
       {
         "id": "1746400912222-1747019746195",
         "name": "China’s Mole Hunt - (script)",
+        "color": "rgb(231, 76, 60)"
+      },
+      {
+        "id": "1746400912222-1748236834691",
+        "name": "China’s Mole Hunt - (pre-edit graphics)",
+        "color": "rgb(231, 76, 60)"
+      },
+      {
+        "id": "1746400912222-1748315612259",
+        "name": "China’s Mole Hunt - (record vo)",
+        "color": "rgb(231, 76, 60)"
+      },
+      {
+        "id": "1746400912222-1748318838780",
+        "name": "China’s Mole Hunt - (Edit)",
+        "color": "rgb(231, 76, 60)"
+      },
+      {
+        "id": "1746400912222-1748907374487",
+        "name": "China’s Mole Hunt - (aroll/filming setup)",
+        "color": "rgb(231, 76, 60)"
+      },
+      {
+        "id": "1746400912222-1749182683706",
+        "name": "China’s Mole Hunt - (mographics)",
         "color": "rgb(231, 76, 60)"
       }
     ]
