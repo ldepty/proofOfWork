@@ -1119,11 +1119,12 @@
 
     <!-- Project Selector -->
     <div class="project-selector">
-      <div style="width: 80%; position: relative;">
-        <input type="text" id="projectInput" placeholder="What are you working on?">
-        <div id="taskDropdown" style="display: none; position: absolute; top: 100%; left: 0; right: 0; background-color: #1a1a1a; border: 1px solid #333; border-radius: 6px; margin-top: 4px; max-height: 300px; overflow-y: auto; z-index: 1000;">
-          <!-- Tasks will be populated here -->
-        </div>
+      <div style="width: 40%; position: relative;">
+        <input type="text" id="projectInput" placeholder="Project">
+      </div>
+      <div style="width: 40%; position: relative;">
+        <input type="text" id="taskInput" placeholder="Task">
+        <div id="taskDropdown" style="display: none; position: absolute; top: 100%; left: 0; right: 0; background-color: #1a1a1a; border: 1px solid #333; border-radius: 6px; margin-top: 4px; max-height: 300px; overflow-y: auto; z-index: 1000;"></div>
       </div>
       <button id="createProjectBtn">
         <i class="fas fa-plus"></i>
@@ -1257,6 +1258,9 @@
           <br>
           <label for="projectInput">Project:</label>
           <input type="text" id="projectInput" placeholder="e.g. Project A" list="projectList">
+          <br>
+          <label for="taskInput">Task:</label>
+          <input type="text" id="taskInput" placeholder="e.g. Research" list="taskList">
           <br>
           <label for="hoursInput">Hours:</label>
           <input type="number" id="hoursInput" min="0" step="1" placeholder="e.g., 2">

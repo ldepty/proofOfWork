@@ -1,4 +1,8 @@
 document.addEventListener('DOMContentLoaded', function() {
+  // Ensure these are defined before any usage!
+  const projectInput = document.getElementById('projectInput');
+  const taskInput = document.getElementById('taskInput');
+  const taskDropdown = document.getElementById('taskDropdown');
   // ===============================
   // Helper Functions (Sydney Time)
   // ===============================
@@ -28,6 +32,7 @@ document.addEventListener('DOMContentLoaded', function() {
       
       const data = await response.json();
       console.log("Raw data received:", data);
+      console.log("Number of sessions:", data.length);
       
       if (!Array.isArray(data)) {
         throw new Error('Data is not an array');
@@ -40,6 +45,10 @@ document.addEventListener('DOMContentLoaded', function() {
       }));
 
       console.log("Sessions loaded successfully:", sessions.length);
+      console.log("Sample session:", sessions[0]);
+      console.log("Projects loaded:", projects.length);
+      console.log("Sample project:", projects[0]);
+      
       updateProjectOptions(); // Update project options after loading sessions
       updateAllDisplays();
     } catch (err) {
@@ -354,35 +363,23 @@ document.addEventListener('DOMContentLoaded', function() {
   // ===============================
   // Project-Specific Calculations
   // ===============================
-  function calculateHoursByProject() {
+  function calculateHoursByProjectAndTask() {
+    console.log("Calculating hours by project and task...");
+    console.log("Sessions:", sessions.length);
+    console.log("Sample sessions:", sessions.slice(0, 3));
+    
     const projectTotals = {};
-    
-    // First pass: normalize project names and sum hours
     sessions.forEach(session => {
-      const projectName = (session.project || 'General').toLowerCase();
-      projectTotals[projectName] = (projectTotals[projectName] || 0) + session.hours;
+      const projectName = (session.project || 'General');
+      const taskName = (session.task || 'General');
+      console.log(`Processing session: ${projectName} - ${taskName} (${session.hours} hours)`);
+      
+      if (!projectTotals[projectName]) projectTotals[projectName] = {};
+      projectTotals[projectName][taskName] = (projectTotals[projectName][taskName] || 0) + session.hours;
     });
     
-    // Create a mapping of normalized names to display names
-    const displayNames = {};
-    sessions.forEach(session => {
-      const normalizedName = (session.project || 'General').toLowerCase();
-      // Keep the first capitalization we see for each project
-      if (!displayNames[normalizedName]) {
-        displayNames[normalizedName] = session.project || 'General';
-      }
-    });
-    
-    // Create final result with proper display names
-    const result = {};
-    Object.entries(projectTotals).forEach(([normalizedName, hours]) => {
-      result[displayNames[normalizedName]] = hours;
-    });
-    
-    // Sort projects by hours in descending order
-    return Object.entries(result)
-      .sort(([,a], [,b]) => b - a)
-      .reduce((r, [k, v]) => ({ ...r, [k]: v }), {});
+    console.log("Project totals:", projectTotals);
+    return projectTotals;
   }
   
   // ===============================
@@ -551,27 +548,19 @@ document.addEventListener('DOMContentLoaded', function() {
     projectsContainer.innerHTML = '<h2>Projects</h2>';
     
     // Get total hours across all projects for percentage calculation
-    const totalHours = projects.reduce((sum, project) => {
-      const projectHours = project.tasks.reduce((taskSum, task) => {
-        const taskHours = sessions
-          .filter(session => session.project === task.name)
-          .reduce((total, session) => total + session.hours, 0);
-        return taskSum + taskHours;
-      }, 0);
-      return sum + projectHours;
+    const totals = calculateHoursByProjectAndTask();
+    const totalHours = Object.values(totals).reduce((sum, projectTasks) => {
+      return sum + Object.values(projectTasks).reduce((taskSum, hours) => taskSum + hours, 0);
     }, 0);
 
     // Create and append project bars
-    projects.forEach(project => {
-      const projectHours = project.tasks.reduce((sum, task) => {
-        const taskHours = sessions
-          .filter(session => session.project === task.name)
-          .reduce((total, session) => total + session.hours, 0);
-        return sum + taskHours;
-      }, 0);
+    Object.keys(totals).forEach(projectName => {
+      const project = projects.find(p => p.name === projectName);
+      const color = project ? project.color : '#888';
+      const projectHours = Object.values(totals[projectName]).reduce((a, b) => a + b, 0);
       
       if (projectHours > 0) {
-        const percentage = (projectHours / totalHours) * 100;
+        const percentage = totalHours > 0 ? (projectHours / totalHours) * 100 : 0;
         
         // Create project header
         const projectBar = document.createElement('div');
@@ -580,40 +569,40 @@ document.addEventListener('DOMContentLoaded', function() {
         projectBar.innerHTML = `
           <div class="project-header">
             <div class="project-name">
-              <span class="project-color-dot" style="background-color: ${project.color}"></span>
-              ${project.name}
+              <span class="project-color-dot" style="background-color: ${color}"></span>
+              ${projectName}
             </div>
             <div class="project-hours">${formatHoursMinutes(projectHours)}</div>
           </div>
           <div class="bar-container">
-            <div class="bar-fill" style="width: ${percentage}%; background-color: ${project.color}"></div>
+            <div class="bar-fill" style="width: ${percentage}%; background-color: ${color}"></div>
           </div>
         `;
         
         projectsContainer.appendChild(projectBar);
 
         // Add tasks under project
-        project.tasks.forEach(task => {
-          const taskHours = sessions
-            .filter(session => session.project === task.name)
-            .reduce((sum, session) => sum + session.hours, 0);
+        Object.keys(totals[projectName]).forEach(taskName => {
+          const taskHours = totals[projectName][taskName];
+          const task = project && project.tasks ? project.tasks.find(t => t.name === taskName) : null;
+          const taskColor = task ? task.color : '#aaa';
 
           if (taskHours > 0) {
             const taskBar = document.createElement('div');
             taskBar.className = 'project-bar task-bar';
             
-            const taskPercentage = (taskHours / projectHours) * 100;
+            const taskPercentage = projectHours > 0 ? (taskHours / projectHours) * 100 : 0;
             
             taskBar.innerHTML = `
               <div class="project-header">
                 <div class="project-name">
-                  <span class="project-color-dot" style="background-color: ${task.color}"></span>
-                  ${task.name}
+                  <span class="project-color-dot" style="background-color: ${taskColor}"></span>
+                  ${taskName}
                 </div>
                 <div class="project-hours">${formatHoursMinutes(taskHours)}</div>
               </div>
               <div class="bar-container">
-                <div class="bar-fill" style="width: ${taskPercentage}%; background-color: ${task.color}"></div>
+                <div class="bar-fill" style="width: ${taskPercentage}%; background-color: ${taskColor}"></div>
               </div>
             `;
             
@@ -630,24 +619,25 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Add all task names from projects
     projects.forEach(project => {
+      projectSet.add(project.name);
       project.tasks.forEach(task => {
-        projectSet.add(task.name);
+        projectSet.add(`${project.name} - ${task.name}`);
       });
     });
     
     // Add all project names from sessions (for backward compatibility)
     sessions.forEach(session => {
-      if (session.project) {
-        projectSet.add(session.project);
+      if (session.project && session.task) {
+        projectSet.add(`${session.project} - ${session.task}`);
       }
     });
     
     const dataList = document.getElementById('projectList');
     if (dataList) {
       dataList.innerHTML = '';
-      Array.from(projectSet).sort().forEach(projectName => {
+      Array.from(projectSet).sort().forEach(projectTask => {
         const option = document.createElement('option');
-        option.value = projectName;
+        option.value = projectTask;
         dataList.appendChild(option);
       });
     }
@@ -799,8 +789,9 @@ document.addEventListener('DOMContentLoaded', function() {
           const sessionTime = luxon.DateTime.fromISO(session.timestamp, { zone: 'Australia/Sydney' });
           return sessionTime >= dayStart && sessionTime <= dayEnd;
         })
-        .map(session => session.project)
-      )).map(projectName => {
+        .map(session => `${session.project} - ${session.task}`)
+      )).map(projectTask => {
+        const [projectName, taskName] = projectTask.split(' - ');
         const projectData = projects.find(p => p.name === projectName);
         return {
           name: projectName,
@@ -857,7 +848,7 @@ document.addEventListener('DOMContentLoaded', function() {
         const sessionDate = luxon.DateTime.fromJSDate(session.timestamp).setZone('Australia/Sydney');
         return sessionDate >= start && sessionDate < end;
       })
-      .map(session => session.project)
+      .map(session => `${session.project} - ${session.task}`)
     )];
   }
   
@@ -891,8 +882,9 @@ document.addEventListener('DOMContentLoaded', function() {
             const sessionTime = session.timestamp;
             return sessionTime >= monthStart && sessionTime <= monthEnd;
           })
-          .map(session => session.project)
-        )].map(projectName => {
+          .map(session => `${session.project} - ${session.task}`)
+        )].map(projectTask => {
+          const [projectName, taskName] = projectTask.split(' - ');
           const projectData = projects.find(p => p.name === projectName);
           return {
             name: projectName,
@@ -999,7 +991,7 @@ document.addEventListener('DOMContentLoaded', function() {
   // Add event listener for toggle switch
   document.querySelector('.toggle-switch').addEventListener('click', toggleTimer);
 
-  // Update the log time button handler
+  // Update the log time button handler to require both project and task
   document.querySelector('.log-time-btn').addEventListener('click', () => {
     // Calculate total elapsed time first
     const totalElapsed = elapsedTime + (isRunning ? (new Date().getTime() - startTime) : 0);
@@ -1015,15 +1007,20 @@ document.addEventListener('DOMContentLoaded', function() {
       toggleTimer(); // Stop the timer first
     }
     
-    // Get current project
-    const projectInput = document.getElementById('projectInput');
+    // Get current project and task
     const project = projectInput.value.trim() || 'General';
+    const task = taskInput ? taskInput.value.trim() : '';
+    if (!project || !task) {
+      alert('Please select both a project and a task.');
+      return;
+    }
     
     // Create new session with Luxon DateTime
     const newSession = {
       timestamp: luxon.DateTime.now().setZone('Australia/Sydney'),
       hours: hours,
-      project: project
+      project: project,
+      task: task
     };
     
     // Add to sessions array and save
@@ -1035,8 +1032,9 @@ document.addEventListener('DOMContentLoaded', function() {
     display.textContent = '00:00:00';
     elapsedTime = 0;  // Reset elapsed time
     
-    // Clear project input
+    // Clear project and task input
     projectInput.value = '';
+    if (taskInput) taskInput.value = '';
   });
   
   // ===============================
@@ -1051,10 +1049,11 @@ document.addEventListener('DOMContentLoaded', function() {
     document.getElementById('manualModal').style.display = 'none';
   });
   
-  // Update the manual entry handler
+  // Update the manual entry handler to require both project and task
   document.getElementById('addButton').addEventListener('click', () => {
     const dateInputValue = document.getElementById('dateInput').value;
     const projectInputValue = document.getElementById('projectInput')?.value.trim() || 'General';
+    const taskInputValue = document.getElementById('taskInput')?.value.trim() || '';
     const hoursInputValue = parseFloat(document.getElementById('hoursInput').value) || 0;
     const minutesInputValue = parseFloat(document.getElementById('minutesInput').value) || 0;
     const totalHours = hoursInputValue + minutesInputValue / 60;
@@ -1062,6 +1061,10 @@ document.addEventListener('DOMContentLoaded', function() {
     // Validate the time before proceeding
     if (totalHours === 0 || isNaN(totalHours)) {
       alert('Cannot log zero or invalid time. Please enter valid hours or minutes.');
+      return;
+    }
+    if (!projectInputValue || !taskInputValue) {
+      alert('Please select both a project and a task.');
       return;
     }
     
@@ -1073,13 +1076,84 @@ document.addEventListener('DOMContentLoaded', function() {
     const newSession = { 
       timestamp, 
       hours: totalHours,
-      project: projectInputValue
+      project: projectInputValue,
+      task: taskInputValue
     };
     
     sessions.push(newSession);
     saveSessions();
     document.getElementById('manualModal').style.display = 'none';
   });
+  
+  // Update: Require both project and task for new sessions
+  // Assume there are two dropdowns/inputs: projectInput and taskInput
+  // If not, create a taskInput next to projectInput
+
+  // Add task input if it doesn't exist
+  if (!taskInput) {
+    const taskInputElem = document.createElement('input');
+    taskInputElem.type = 'text';
+    taskInputElem.id = 'taskInput';
+    taskInputElem.placeholder = 'Task';
+    taskInputElem.style.marginLeft = '10px';
+    document.getElementById('projectInput').parentNode.appendChild(taskInputElem);
+    taskInput = taskInputElem;
+  }
+
+  // When project changes, update task options
+  projectInput.addEventListener('input', () => {
+    updateTaskOptionsForProject(projectInput.value);
+  });
+
+  function updateTaskOptionsForProject(projectName) {
+    const project = projects.find(p => p.name === projectName);
+    if (!project) return;
+    const taskList = project.tasks.map(t => t.name);
+    // Optionally, show a datalist for taskInput
+    let dataList = document.getElementById('taskList');
+    if (!dataList) {
+      dataList = document.createElement('datalist');
+      dataList.id = 'taskList';
+      document.body.appendChild(dataList);
+      taskInput.setAttribute('list', 'taskList');
+    }
+    dataList.innerHTML = '';
+    taskList.forEach(taskName => {
+      const option = document.createElement('option');
+      option.value = taskName;
+      dataList.appendChild(option);
+    });
+  }
+
+  // Update session creation to require both project and task
+  const addSessionBtn = document.getElementById('addSessionBtn');
+  if (addSessionBtn) {
+    addSessionBtn.addEventListener('click', () => {
+      const projectName = projectInput.value.trim();
+      const taskName = taskInput.value.trim();
+      const hours = parseFloat(document.getElementById('hoursInput').value);
+      const date = document.getElementById('dateInput').value;
+      if (!projectName || !taskName || isNaN(hours) || !date) {
+        alert('Please select a project, a task, enter hours, and a date.');
+        return;
+      }
+      const project = projects.find(p => p.name === projectName);
+      if (!project || !project.tasks.find(t => t.name === taskName)) {
+        alert('Please select a valid project and task.');
+        return;
+      }
+      const timestamp = luxon.DateTime.fromISO(date).setZone('Australia/Sydney').toJSDate();
+      const newSession = {
+        timestamp,
+        hours,
+        project: projectName,
+        task: taskName
+      };
+      sessions.push(newSession);
+      saveSessions();
+      updateAllDisplays();
+    });
+  }
   
   // ===============================
   // Daily Achievements Section
@@ -1420,8 +1494,6 @@ document.addEventListener('DOMContentLoaded', function() {
   });
 
   // Project input and dropdown handling
-  const projectInput = document.getElementById('projectInput');
-  const taskDropdown = document.getElementById('taskDropdown');
 
   // Show dropdown when input is focused
   projectInput.addEventListener('focus', () => {
