@@ -1960,5 +1960,23 @@
     "hours": 0.18579138888888888,
     "project": "Parlour Maid",
     "task": "Research"
+  },
+  {
+    "timestamp": "2025-07-25T13:26:00.623+10:00",
+    "hours": 0.5118902777777777,
+    "project": "Cliff Stoll",
+    "task": "Research"
+  },
+  {
+    "timestamp": "2025-07-25T13:26:00.623+10:00",
+    "hours": 1.2511890277777777,
+    "project": "Cliff Stoll",
+    "task": "Packaging"
+  },
+  {
+    "timestamp": "2025-07-25T16:26:14.520+10:00",
+    "hours": 0.8961166666666667,
+    "project": "Cliff Stoll",
+    "task": "Packaging"
   }
 ]
