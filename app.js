@@ -815,8 +815,8 @@ document.addEventListener('DOMContentLoaded', function() {
     // Update project bars
     updateProjects();
 
-    // Update last 7 days and year overview
-    updateLast7Days();
+    // Update current week and year overview
+    updateCurrentWeek();
     updateYearOverview();
 
     // Update commit chart
@@ -825,23 +825,35 @@ document.addEventListener('DOMContentLoaded', function() {
     console.log('All displays updated');
   }
   
-  function updateLast7Days() {
+  function updateCurrentWeek() {
     const container = document.getElementById('seven-days-content');
     container.innerHTML = '';
     
     const now = luxon.DateTime.now().setZone('Australia/Sydney');
     
-    // Create array of last 7 days
+    // Get the start of the current week (Monday)
+    const weekStart = now.startOf('week');
+    
+    // Calculate week number (1-52)
+    const weekNumber = Math.ceil(now.ordinal / 7);
+    
+    // Update the header to show current week
+    const headerElement = document.querySelector('#last-seven-days h2');
+    if (headerElement) {
+      headerElement.textContent = `Week ${weekNumber} of 52`;
+    }
+    
+    // Create array of days for the current week (Monday to Sunday)
     const days = [];
     for (let i = 0; i < 7; i++) {
-      const date = now.minus({ days: i });
+      const date = weekStart.plus({ days: i });
       const dayStart = date.startOf('day');
       const dayEnd = date.endOf('day');
       
       // Calculate total hours for this day
       const dayHours = sessions
         .filter(session => {
-          const sessionTime = luxon.DateTime.fromISO(session.timestamp, { zone: 'Australia/Sydney' });
+          const sessionTime = session.timestamp;
           return sessionTime >= dayStart && sessionTime <= dayEnd;
         })
         .reduce((sum, session) => sum + session.hours, 0);
@@ -849,7 +861,7 @@ document.addEventListener('DOMContentLoaded', function() {
       // Get unique projects for this day with their colors
       const dayProjects = Array.from(new Set(sessions
         .filter(session => {
-          const sessionTime = luxon.DateTime.fromISO(session.timestamp, { zone: 'Australia/Sydney' });
+          const sessionTime = session.timestamp;
           return sessionTime >= dayStart && sessionTime <= dayEnd;
         })
         .map(session => `${session.project} - ${session.task}`)
@@ -865,7 +877,8 @@ document.addEventListener('DOMContentLoaded', function() {
       days.push({
         date,
         hours: dayHours,
-        projects: dayProjects
+        projects: dayProjects,
+        isToday: date.hasSame(now, 'day')
       });
     }
     
@@ -874,9 +887,14 @@ document.addEventListener('DOMContentLoaded', function() {
       const row = document.createElement('div');
       row.className = 'day-row';
       
+      // Remove bottom border for the last day (Sunday) since we have a separator
+      if (index === 6) {
+        row.style.borderBottom = 'none';
+      }
+      
       const dayName = document.createElement('div');
       dayName.className = 'day-name';
-      dayName.textContent = index === 0 ? 'Today' : day.date.toFormat('cccc');
+      dayName.textContent = day.isToday ? 'Today' : day.date.toFormat('cccc');
       
       const projectName = document.createElement('div');
       projectName.className = 'day-project';
@@ -900,6 +918,48 @@ document.addEventListener('DOMContentLoaded', function() {
       row.appendChild(dayHours);
       container.appendChild(row);
     });
+    
+    // Add separator line
+    const separator = document.createElement('div');
+    separator.style.borderTop = '2px solid #222';
+    separator.style.margin = '15px 0';
+    container.appendChild(separator);
+    
+    // Add last 4 weeks summary
+    for (let i = 1; i <= 4; i++) {
+      const previousWeekStart = weekStart.minus({ weeks: i });
+      const previousWeekEnd = previousWeekStart.endOf('week');
+      
+      // Calculate total hours for the previous week
+      const weekHours = sessions
+        .filter(session => {
+          const sessionTime = session.timestamp;
+          return sessionTime >= previousWeekStart && sessionTime <= previousWeekEnd;
+        })
+        .reduce((sum, session) => sum + session.hours, 0);
+      
+      const previousWeekNumber = Math.ceil(previousWeekStart.ordinal / 7);
+      
+      const weekRow = document.createElement('div');
+      weekRow.className = 'day-row';
+      
+      const weekName = document.createElement('div');
+      weekName.className = 'day-name';
+      weekName.textContent = `Week ${previousWeekNumber}`;
+      
+      const weekProject = document.createElement('div');
+      weekProject.className = 'day-project';
+      weekProject.textContent = '--------';
+      
+      const weekHoursElement = document.createElement('div');
+      weekHoursElement.className = 'day-hours';
+      weekHoursElement.textContent = formatHoursMinutes(weekHours);
+      
+      weekRow.appendChild(weekName);
+      weekRow.appendChild(weekProject);
+      weekRow.appendChild(weekHoursElement);
+      container.appendChild(weekRow);
+    }
   }
 
   function updateYearOverview() {
