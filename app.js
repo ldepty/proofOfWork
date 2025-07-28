@@ -387,21 +387,18 @@ document.addEventListener('DOMContentLoaded', function() {
   // Project-Specific Calculations
   // ===============================
   function calculateHoursByProjectAndTask() {
-    console.log("Calculating hours by project and task...");
-    console.log("Sessions:", sessions.length);
-    console.log("Sample sessions:", sessions.slice(0, 3));
-    
     const projectTotals = {};
+    const uniqueProjectNames = new Set();
+    
     sessions.forEach(session => {
       const projectName = (session.project || 'General');
       const taskName = (session.task || 'General');
-      console.log(`Processing session: ${projectName} - ${taskName} (${session.hours} hours)`);
+      uniqueProjectNames.add(projectName);
       
       if (!projectTotals[projectName]) projectTotals[projectName] = {};
       projectTotals[projectName][taskName] = (projectTotals[projectName][taskName] || 0) + session.hours;
     });
     
-    console.log("Project totals:", projectTotals);
     return projectTotals;
   }
   
@@ -429,6 +426,7 @@ document.addEventListener('DOMContentLoaded', function() {
       if (Array.isArray(loadedProjects) && loadedProjects.length > 0) {
         projects = loadedProjects;
       }
+      console.log('Loaded projects:', projects);
       updateProjectOptions();
     } catch (err) {
       console.error("Error loading projects:", err);
@@ -594,8 +592,13 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Create and append project bars in sorted order
     sortedProjectNames.forEach(projectName => {
-      const project = projects.find(p => p.name === projectName);
+      // Try exact match first, then case-insensitive match
+      let project = projects.find(p => p.name === projectName);
+      if (!project) {
+        project = projects.find(p => p.name.toLowerCase() === projectName.toLowerCase());
+      }
       const color = project ? project.color : '#888';
+      
       const projectHours = Object.values(totals[projectName]).reduce((a, b) => a + b, 0);
       
       if (projectHours > 0) {
@@ -1039,11 +1042,11 @@ document.addEventListener('DOMContentLoaded', function() {
       projectName.className = 'month-project';
       if (monthData.projects.length > 0) {
         projectName.innerHTML = monthData.projects.map(project => `
-          <span>
+          <div style="margin-bottom: 4px;">
             <span class="project-color-dot" style="background-color: ${project.color}"></span>
             ${project.name}
-          </span>
-        `).join(', ');
+          </div>
+        `).join('');
       } else {
         projectName.textContent = '--------';
       }
@@ -1328,12 +1331,205 @@ document.addEventListener('DOMContentLoaded', function() {
 
 
   // ===============================
+  // Upload Tracking
+  // ===============================
+  let uploads = [];
+
+  async function loadUploads() {
+    try {
+      console.log('Loading uploads...');
+      const response = await fetch('http://localhost:3000/uploads.json');
+      if (!response.ok) {
+        throw new Error('Failed to load uploads');
+      }
+      uploads = await response.json();
+      console.log('Loaded uploads:', uploads);
+      updateUploadsDisplay();
+    } catch (err) {
+      console.error("Error loading uploads:", err);
+      uploads = [];
+    }
+  }
+
+  async function saveUploads() {
+    try {
+      console.log('Saving uploads:', uploads);
+      const response = await fetch('http://localhost:3000/uploads.json', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(uploads)
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to save uploads');
+      }
+      
+      console.log('Uploads saved successfully');
+    } catch (err) {
+      console.error("Error saving uploads:", err);
+    }
+  }
+
+  function updateUploadsDisplay() {
+    const container = document.getElementById('uploads-container');
+    container.innerHTML = '';
+    
+    // Sort uploads by date (most recent first) and take only the last 5
+    const recentUploads = uploads
+      .sort((a, b) => new Date(b.uploadDate) - new Date(a.uploadDate))
+      .slice(0, 5);
+    
+    recentUploads.forEach(upload => {
+      const uploadCard = document.createElement('div');
+      uploadCard.className = 'upload-card';
+      
+      const now = luxon.DateTime.now().setZone('Australia/Sydney');
+      const uploadDateTime = luxon.DateTime.fromISO(upload.uploadDate);
+      const daysSinceUpload = Math.floor(now.diff(uploadDateTime, 'days').days);
+      
+      uploadCard.innerHTML = `
+        <div class="upload-thumbnail">
+          ${upload.thumbnailUrl ? 
+            `<img src="${upload.thumbnailUrl}" alt="${upload.title}">` : 
+            '<div>No thumbnail</div>'
+          }
+        </div>
+        <div class="upload-info">
+          <div class="upload-title">${upload.title}</div>
+          <div class="upload-date">${uploadDateTime.toFormat('dd/MM/yy')}</div>
+          <div class="upload-days-ago">${daysSinceUpload} days ago</div>
+        </div>
+      `;
+      
+      container.appendChild(uploadCard);
+    });
+  }
+
+  // Upload modal functionality
+  const addUploadBtn = document.getElementById('addUploadBtn');
+  const addUploadModal = document.getElementById('addUploadModal');
+  const cancelUploadBtn = document.getElementById('cancelUploadBtn');
+  const confirmUploadBtn = document.getElementById('confirmUploadBtn');
+  const videoTitleInput = document.getElementById('videoTitle');
+  const uploadDateInput = document.getElementById('uploadDate');
+  const thumbnailUploadInput = document.getElementById('thumbnailUpload');
+  const thumbnailPreview = document.getElementById('thumbnailPreview');
+  const previewImage = document.getElementById('previewImage');
+
+  // Check if all elements are found
+  console.log('Upload modal elements:', {
+    addUploadBtn: !!addUploadBtn,
+    addUploadModal: !!addUploadModal,
+    cancelUploadBtn: !!cancelUploadBtn,
+    confirmUploadBtn: !!confirmUploadBtn,
+    videoTitleInput: !!videoTitleInput,
+    uploadDateInput: !!uploadDateInput,
+    thumbnailUploadInput: !!thumbnailUploadInput,
+    thumbnailPreview: !!thumbnailPreview,
+    previewImage: !!previewImage
+  });
+
+  // Set default date to today
+  uploadDateInput.value = luxon.DateTime.now().setZone('Australia/Sydney').toISODate();
+
+  addUploadBtn.addEventListener('click', () => {
+    addUploadModal.style.display = 'block';
+  });
+
+  cancelUploadBtn.addEventListener('click', () => {
+    addUploadModal.style.display = 'none';
+    // Reset form
+    videoTitleInput.value = '';
+    uploadDateInput.value = luxon.DateTime.now().setZone('Australia/Sydney').toISODate();
+    thumbnailUploadInput.value = '';
+    thumbnailPreview.style.display = 'none';
+  });
+
+  // Close modal when clicking outside
+  window.addEventListener('click', (event) => {
+    if (event.target === addUploadModal) {
+      addUploadModal.style.display = 'none';
+    }
+  });
+
+  // Thumbnail preview
+  thumbnailUploadInput.addEventListener('change', (event) => {
+    const file = event.target.files[0];
+    if (file) {
+      // Check file size (limit to 2MB)
+      if (file.size > 2 * 1024 * 1024) {
+        alert('Image file is too large. Please choose an image smaller than 2MB.');
+        thumbnailUploadInput.value = '';
+        return;
+      }
+      
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        previewImage.src = e.target.result;
+        thumbnailPreview.style.display = 'block';
+      };
+      reader.readAsDataURL(file);
+    }
+  });
+
+  confirmUploadBtn.addEventListener('click', () => {
+    const title = videoTitleInput.value.trim();
+    const uploadDate = uploadDateInput.value;
+    
+    if (!title || !uploadDate) {
+      alert('Please enter both title and upload date');
+      return;
+    }
+
+    const newUpload = {
+      id: Date.now(),
+      title: title,
+      uploadDate: uploadDate,
+      thumbnailUrl: previewImage.src || null,
+      createdAt: luxon.DateTime.now().setZone('Australia/Sydney').toISO()
+    };
+
+    console.log('Adding new upload:', newUpload);
+    uploads.push(newUpload);
+    console.log('Current uploads array:', uploads);
+    
+    saveUploads();
+    updateUploadsDisplay();
+    
+    // Close modal and reset form
+    addUploadModal.style.display = 'none';
+    videoTitleInput.value = '';
+    uploadDateInput.value = luxon.DateTime.now().setZone('Australia/Sydney').toISODate();
+    thumbnailUploadInput.value = '';
+    thumbnailPreview.style.display = 'none';
+  });
+
+  // ===============================
   // Initialize Application
   // ===============================
   
-  // Load data and initialize displays
-  loadSessions();
-  loadProjects();
+  // Load data and initialize displays in the correct order
+  async function initializeApp() {
+    try {
+      // Load projects first
+      await loadProjects();
+      console.log('Projects loaded, now loading sessions...');
+      
+      // Then load sessions
+      await loadSessions();
+      console.log('Sessions loaded, now loading uploads...');
+      
+      // Finally load uploads
+      await loadUploads();
+      console.log('All data loaded successfully');
+    } catch (err) {
+      console.error('Error during initialization:', err);
+    }
+  }
+  
+  initializeApp();
   
   // Update timer display every second when running
   setInterval(() => {

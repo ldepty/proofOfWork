@@ -4,8 +4,8 @@ const path = require('path');
 const app = express();
 const port = 3000;
 
-// Middleware to parse JSON bodies
-app.use(express.json());
+// Middleware to parse JSON bodies with increased limit for image uploads
+app.use(express.json({ limit: '10mb' }));
 
 // Serve static files from current directory
 app.use(express.static('.'));
@@ -63,6 +63,39 @@ app.post('/projects.json', async (req, res) => {
     res.json({ success: true });
   } catch (err) {
     res.status(500).json({ error: 'Failed to write projects.json' });
+  }
+});
+
+// GET /uploads.json - Load uploads
+app.get('/uploads.json', async (req, res) => {
+  try {
+    console.log('Loading uploads from file...');
+    const data = await fs.readFile('uploads.json', 'utf8');
+    const uploads = JSON.parse(data);
+    console.log('Loaded uploads:', uploads);
+    res.json(uploads);
+  } catch (err) {
+    if (err.code === 'ENOENT') {
+      // File doesn't exist, return empty array
+      console.log('uploads.json file not found, returning empty array');
+      res.json([]);
+    } else {
+      console.error('Error reading uploads.json:', err);
+      res.status(500).json({ error: 'Failed to read uploads.json' });
+    }
+  }
+});
+
+// POST /uploads.json - Save uploads
+app.post('/uploads.json', async (req, res) => {
+  try {
+    console.log('Received uploads data:', req.body);
+    await fs.writeFile('uploads.json', JSON.stringify(req.body, null, 2));
+    console.log('Uploads saved to file successfully');
+    res.json({ success: true });
+  } catch (err) {
+    console.error('Error saving uploads:', err);
+    res.status(500).json({ error: 'Failed to write uploads.json' });
   }
 });
 
