@@ -3,6 +3,7 @@ document.addEventListener('DOMContentLoaded', function() {
   const projectInput = document.getElementById('projectInput');
   const taskInput = document.getElementById('taskInput');
   const taskDropdown = document.getElementById('taskDropdown');
+  
   // ===============================
   // Helper Functions (Sydney Time)
   // ===============================
@@ -192,6 +193,30 @@ document.addEventListener('DOMContentLoaded', function() {
     }).reduce((sum, session) => sum + session.hours, 0);
   }
 
+  function getDayProjects(date) {
+    // Convert input date to Luxon DateTime in Sydney timezone if it's not already
+    const sydneyDate = luxon.DateTime.isDateTime(date) 
+      ? date.setZone('Australia/Sydney')
+      : luxon.DateTime.fromJSDate(date).setZone('Australia/Sydney');
+    
+    const sydneyStart = sydneyDate.startOf('day');
+    const sydneyEnd = sydneyDate.endOf('day');
+
+    const daySessions = sessions.filter(session => {
+      return session.timestamp >= sydneyStart && session.timestamp <= sydneyEnd;
+    });
+
+    // Get unique project-task combinations
+    const projectTasks = new Set();
+    daySessions.forEach(session => {
+      if (session.project && session.task) {
+        projectTasks.add(`${session.project} - ${session.task}`);
+      }
+    });
+
+    return Array.from(projectTasks);
+  }
+
   function calculateCommitsForDay(date) {
     // Convert input date to Luxon DateTime in Sydney timezone if it's not already
     const sydneyDate = luxon.DateTime.isDateTime(date) 
@@ -327,31 +352,29 @@ document.addEventListener('DOMContentLoaded', function() {
   function calculateBestDay() {
     const dailyTotals = {};
     sessions.forEach(session => {
-      const dateKey = luxon.DateTime.fromJSDate(session.timestamp)
-        .setZone('Australia/Sydney')
-        .toISODate();
+      // session.timestamp is already a Luxon DateTime object
+      const dateKey = session.timestamp.setZone('Australia/Sydney').toISODate();
       dailyTotals[dateKey] = (dailyTotals[dateKey] || 0) + session.hours;
     });
     let maxHours = 0;
+    let bestDate = null;
     for (const day in dailyTotals) {
       if (dailyTotals[day] > maxHours) {
         maxHours = dailyTotals[day];
+        bestDate = day;
       }
     }
-    return maxHours;
+    return { hours: maxHours, date: bestDate };
   }
   
   function calculateAvgWorkDay() {
     const dailyTotals = {};
     sessions.forEach(session => {
-      const dayOfWeek = luxon.DateTime.fromJSDate(session.timestamp)
-        .setZone('Australia/Sydney')
-        .weekday;
+      // session.timestamp is already a Luxon DateTime object
+      const dayOfWeek = session.timestamp.setZone('Australia/Sydney').weekday;
       // Monday=1 ... Friday=5
       if (dayOfWeek >= 1 && dayOfWeek <= 5) {
-        const dateKey = luxon.DateTime.fromJSDate(session.timestamp)
-          .setZone('Australia/Sydney')
-          .toISODate();
+        const dateKey = session.timestamp.setZone('Australia/Sydney').toISODate();
         dailyTotals[dateKey] = (dailyTotals[dateKey] || 0) + session.hours;
       }
     });
@@ -553,8 +576,24 @@ document.addEventListener('DOMContentLoaded', function() {
       return sum + Object.values(projectTasks).reduce((taskSum, hours) => taskSum + hours, 0);
     }, 0);
 
-    // Create and append project bars
-    Object.keys(totals).forEach(projectName => {
+    // Get most recent session for each project
+    const projectLastActivity = {};
+    sessions.forEach(session => {
+      const projectName = session.project || 'General';
+      if (!projectLastActivity[projectName] || session.timestamp > projectLastActivity[projectName]) {
+        projectLastActivity[projectName] = session.timestamp;
+      }
+    });
+
+    // Sort projects by most recent activity
+    const sortedProjectNames = Object.keys(totals).sort((a, b) => {
+      const aLastActivity = projectLastActivity[a] || new Date(0);
+      const bLastActivity = projectLastActivity[b] || new Date(0);
+      return bLastActivity - aLastActivity; // Most recent first
+    });
+
+    // Create and append project bars in sorted order
+    sortedProjectNames.forEach(projectName => {
       const project = projects.find(p => p.name === projectName);
       const color = project ? project.color : '#888';
       const projectHours = Object.values(totals[projectName]).reduce((a, b) => a + b, 0);
@@ -562,29 +601,31 @@ document.addEventListener('DOMContentLoaded', function() {
       if (projectHours > 0) {
         const percentage = totalHours > 0 ? (projectHours / totalHours) * 100 : 0;
         
-        // Create project header
-        const projectBar = document.createElement('div');
-        projectBar.className = 'project-bar';
+        // Create project container
+        const projectContainer = document.createElement('div');
+        projectContainer.className = 'project-container';
         
-        projectBar.innerHTML = `
-          <div class="project-header">
-            <div class="project-name">
-              <span class="project-color-dot" style="background-color: ${color}"></span>
-              ${projectName}
-            </div>
-            <div class="project-hours">${formatHoursMinutes(projectHours)}</div>
+        // Create project header with dropdown toggle
+        const projectHeader = document.createElement('div');
+        projectHeader.className = 'project-header collapsible';
+        projectHeader.innerHTML = `
+          <div class="project-name">
+            <i class="fas fa-chevron-right dropdown-icon"></i>
+            <span class="project-color-dot" style="background-color: ${color}"></span>
+            ${projectName}
           </div>
-          <div class="bar-container">
-            <div class="bar-fill" style="width: ${percentage}%; background-color: ${color}"></div>
-          </div>
+          <div class="project-hours" style="border-left-color: ${color}">${formatHoursMinutes(projectHours)}</div>
         `;
         
-        projectsContainer.appendChild(projectBar);
-
+        // Create tasks container (initially hidden)
+        const tasksContainer = document.createElement('div');
+        tasksContainer.className = 'tasks-container';
+        tasksContainer.style.display = 'none';
+        
         // Add tasks under project
         Object.keys(totals[projectName]).forEach(taskName => {
           const taskHours = totals[projectName][taskName];
-          const task = project && project.tasks ? project.tasks.find(t => t.name === taskName) : null;
+          const task = project && project.tasks && Array.isArray(project.tasks) ? project.tasks.find(t => t.name === taskName) : null;
           const taskColor = task ? task.color : '#aaa';
 
           if (taskHours > 0) {
@@ -594,21 +635,40 @@ document.addEventListener('DOMContentLoaded', function() {
             const taskPercentage = projectHours > 0 ? (taskHours / projectHours) * 100 : 0;
             
             taskBar.innerHTML = `
-              <div class="project-header">
+              <div class="task-header">
                 <div class="project-name">
                   <span class="project-color-dot" style="background-color: ${taskColor}"></span>
                   ${taskName}
                 </div>
-                <div class="project-hours">${formatHoursMinutes(taskHours)}</div>
+                <div class="task-hours" style="border-left-color: ${taskColor}">${formatHoursMinutes(taskHours)}</div>
               </div>
               <div class="bar-container">
                 <div class="bar-fill" style="width: ${taskPercentage}%; background-color: ${taskColor}"></div>
               </div>
             `;
             
-            projectsContainer.appendChild(taskBar);
+            tasksContainer.appendChild(taskBar);
           }
         });
+        
+        // Add click handler for dropdown toggle
+        projectHeader.addEventListener('click', () => {
+          const icon = projectHeader.querySelector('.dropdown-icon');
+          const isExpanded = tasksContainer.style.display !== 'none';
+          
+          if (isExpanded) {
+            tasksContainer.style.display = 'none';
+            icon.className = 'fas fa-chevron-right dropdown-icon';
+          } else {
+            tasksContainer.style.display = 'block';
+            icon.className = 'fas fa-chevron-down dropdown-icon';
+          }
+        });
+        
+        // Add to container
+        projectContainer.appendChild(projectHeader);
+        projectContainer.appendChild(tasksContainer);
+        projectsContainer.appendChild(projectContainer);
       }
     });
   }
@@ -620,9 +680,11 @@ document.addEventListener('DOMContentLoaded', function() {
     // Add all task names from projects
     projects.forEach(project => {
       projectSet.add(project.name);
-      project.tasks.forEach(task => {
-        projectSet.add(`${project.name} - ${task.name}`);
-      });
+      if (project.tasks && Array.isArray(project.tasks)) {
+        project.tasks.forEach(task => {
+          projectSet.add(`${project.name} - ${task.name}`);
+        });
+      }
     });
     
     // Add all project names from sessions (for backward compatibility)
@@ -730,21 +792,22 @@ document.addEventListener('DOMContentLoaded', function() {
       currentStreakElement.textContent = calculateCurrentStreak();
     }
     
-    // Update stats display with minutes
-    document.querySelectorAll('.stat').forEach(stat => {
-      const period = stat.getAttribute('data-period');
-      if (period && totals[period] !== undefined) {
-        const hours = totals[period];
-        const hoursDisplay = Math.floor(hours);
-        const minutes = Math.round((hours - hoursDisplay) * 60);
-        
-        // Update hours/minutes display
-        const valueElement = stat.querySelector('p');
-        if (valueElement) {
-          valueElement.textContent = `${hoursDisplay}h ${minutes}m`;
-        }
-      }
-    });
+    // Update best day and average work day
+    const bestDayData = calculateBestDay();
+    const avgWorkDayHours = calculateAvgWorkDay();
+    
+    document.getElementById('bestDay').textContent = formatHoursMinutes(bestDayData.hours);
+    
+    // Update best day date
+    const bestDayDateElement = document.getElementById('bestDayDate');
+    if (bestDayDateElement && bestDayData.date) {
+      const formattedDate = luxon.DateTime.fromISO(bestDayData.date).toFormat('MMM d, yyyy');
+      bestDayDateElement.textContent = formattedDate;
+    } else if (bestDayDateElement) {
+      bestDayDateElement.textContent = '';
+    }
+    
+    document.getElementById('avgWorkDay').textContent = formatHoursMinutes(avgWorkDayHours);
 
     // Update calendar
     generateCalendar();
@@ -828,737 +891,394 @@ document.addEventListener('DOMContentLoaded', function() {
         projectName.textContent = '--------';
       }
       
-      const hoursDisplay = document.createElement('div');
-      hoursDisplay.className = 'day-hours';
-      hoursDisplay.textContent = formatHoursMinutes(day.hours);
+      const dayHours = document.createElement('div');
+      dayHours.className = 'day-hours';
+      dayHours.textContent = formatHoursMinutes(day.hours);
       
       row.appendChild(dayName);
       row.appendChild(projectName);
-      row.appendChild(hoursDisplay);
+      row.appendChild(dayHours);
       container.appendChild(row);
     });
   }
-  
-  function getDayProjects(date) {
-    const start = luxon.DateTime.fromJSDate(date).setZone('Australia/Sydney').startOf('day');
-    const end = start.plus({ days: 1 });
-    
-    return [...new Set(sessions
-      .filter(session => {
-        const sessionDate = luxon.DateTime.fromJSDate(session.timestamp).setZone('Australia/Sydney');
-        return sessionDate >= start && sessionDate < end;
-      })
-      .map(session => `${session.project} - ${session.task}`)
-    )];
-  }
-  
+
   function updateYearOverview() {
     const container = document.getElementById('year-overview-content');
     container.innerHTML = '';
     
     const now = luxon.DateTime.now().setZone('Australia/Sydney');
     const currentYear = now.year;
+    const currentMonth = now.month;
     
-    // Create an array of all months in the current year
+    // Create array of months for the current year
     const months = [];
     for (let month = 1; month <= 12; month++) {
-      const date = luxon.DateTime.fromObject({ year: currentYear, month }, { zone: 'Australia/Sydney' });
-      const monthStart = date.startOf('month');
-      const monthEnd = date.endOf('month');
+      const monthStart = luxon.DateTime.fromObject({ year: currentYear, month }, { zone: 'Australia/Sydney' }).startOf('month');
+      const monthEnd = luxon.DateTime.fromObject({ year: currentYear, month }, { zone: 'Australia/Sydney' }).endOf('month');
       
-      // Calculate total hours for the month
-      const monthHours = sessions
-        .filter(session => {
-          const sessionTime = session.timestamp;
-          return sessionTime >= monthStart && sessionTime <= monthEnd;
-        })
-        .reduce((sum, session) => sum + session.hours, 0);
+      // Calculate total hours for this month
+      const monthSessions = sessions.filter(session => {
+        const sessionTime = session.timestamp;
+        return sessionTime >= monthStart && sessionTime <= monthEnd;
+      });
       
-      // Only add months that have hours logged
+      const monthHours = monthSessions.reduce((sum, session) => sum + session.hours, 0);
+      
+      // Only include months that have time logged
       if (monthHours > 0) {
-        // Get unique projects for the month
-        const monthProjects = [...new Set(sessions
-          .filter(session => {
-            const sessionTime = session.timestamp;
-            return sessionTime >= monthStart && sessionTime <= monthEnd;
-          })
-          .map(session => `${session.project} - ${session.task}`)
-        )].map(projectTask => {
-          const [projectName, taskName] = projectTask.split(' - ');
-          const projectData = projects.find(p => p.name === projectName);
-          return {
-            name: projectName,
-            color: projectData ? projectData.color : '#9370DB'
-          };
+        // Get unique projects for this month (only project names, no tasks)
+        const uniqueProjects = new Map();
+        monthSessions.forEach(session => {
+          const projectName = session.project || 'General';
+          if (!uniqueProjects.has(projectName)) {
+            const projectData = projects.find(p => p.name === projectName);
+            uniqueProjects.set(projectName, {
+              name: projectName,
+              color: projectData ? projectData.color : '#9370DB'
+            });
+          }
         });
         
+        const monthProjects = Array.from(uniqueProjects.values());
+        
         months.push({
-          name: date.toFormat('MMMM'),
+          month,
           hours: monthHours,
-          projects: monthProjects
+          projects: monthProjects,
+          isCurrentMonth: month === currentMonth
         });
       }
     }
     
+    // Sort months by most recent first (current month at top)
+    months.sort((a, b) => b.month - a.month);
+    
     // Create rows for each month
-    months.forEach(month => {
+    months.forEach(monthData => {
       const row = document.createElement('div');
       row.className = 'month-row';
       
       const monthName = document.createElement('div');
       monthName.className = 'month-name';
-      monthName.textContent = month.name;
+      
+      const monthText = luxon.DateTime.fromObject({ month: monthData.month }, { zone: 'Australia/Sydney' }).toFormat('MMMM');
+      
+      if (monthData.isCurrentMonth) {
+        monthName.innerHTML = `
+          <div>${monthText}</div>
+          <div class="current-indicator">
+            <span class="current-dot"></span>
+            <span class="current-text">current</span>
+          </div>
+        `;
+      } else {
+        monthName.textContent = monthText;
+      }
       
       const projectName = document.createElement('div');
       projectName.className = 'month-project';
-      if (month.projects.length > 0) {
-        projectName.innerHTML = month.projects.map(project => `
+      if (monthData.projects.length > 0) {
+        projectName.innerHTML = monthData.projects.map(project => `
           <span>
             <span class="project-color-dot" style="background-color: ${project.color}"></span>
             ${project.name}
           </span>
-        `).join('');
+        `).join(', ');
       } else {
         projectName.textContent = '--------';
       }
       
-      const hoursDisplay = document.createElement('div');
-      hoursDisplay.className = 'month-hours';
-      hoursDisplay.textContent = formatHoursMinutes(month.hours);
+      const monthHours = document.createElement('div');
+      monthHours.className = 'month-hours';
+      monthHours.textContent = formatHoursMinutes(monthData.hours);
       
       row.appendChild(monthName);
       row.appendChild(projectName);
-      row.appendChild(hoursDisplay);
+      row.appendChild(monthHours);
       container.appendChild(row);
     });
   }
-  
+
+  function updateCommitChart() {
+    // This function is called but not implemented - placeholder for now
+    console.log('Update commit chart called');
+  }
+
   // ===============================
-  // Stopwatch Functionality
+  // Timer and Session Management
   // ===============================
   let isRunning = false;
-  let startTime;
-  let elapsedTime = 0;  // This tracks total elapsed time
-  let timerInterval;
+  let startTime = null;
+  let currentSession = null;
+  let intervalId = null;
 
-  function updateTimer() {
-    if (!isRunning) return;
+  const toggleSwitch = document.querySelector('.toggle-switch');
+  const timerDisplay = document.querySelector('.timer-display');
+  const logTimeBtn = document.querySelector('.log-time-btn');
+  const workingStatus = document.querySelector('.working-status');
+
+  // Initialize timer display
+  function updateTimerDisplay() {
+    if (!isRunning || !startTime) {
+      timerDisplay.textContent = '00:00:00';
+      return;
+    }
+
+    const now = luxon.DateTime.now().setZone('Australia/Sydney');
+    const elapsed = now.diff(startTime, ['hours', 'minutes', 'seconds']);
     
-    const now = new Date().getTime();
-    const currentElapsed = now - startTime;
-    const totalElapsed = elapsedTime + currentElapsed;
+    const hours = Math.floor(elapsed.hours);
+    const minutes = Math.floor(elapsed.minutes);
+    const seconds = Math.floor(elapsed.seconds);
     
-    const hours = Math.floor(totalElapsed / (1000 * 60 * 60));
-    const minutes = Math.floor((totalElapsed % (1000 * 60 * 60)) / (1000 * 60));
-    const seconds = Math.floor((totalElapsed % (1000 * 60)) / 1000);
-    
-    const timeDisplay = `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
-    
-    // Update timer display
-    const display = document.querySelector('.timer-display');
-    display.textContent = timeDisplay;
-    
-    // Update browser tab title
-    document.title = `${timeDisplay} - Time Tracker`;
+    timerDisplay.textContent = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
   }
 
-  function toggleTimer() {
-    const toggleSwitch = document.querySelector('.toggle-switch');
-    const toggleHandle = toggleSwitch.querySelector('.toggle-handle i');
-    const workingStatus = document.querySelector('.working-status');
-    
-    if (!isRunning) {
-      // Start timer
-      isRunning = true;
-      startTime = new Date().getTime();
-      timerInterval = setInterval(updateTimer, 1000);
-      toggleHandle.className = 'fas fa-pause';
-      toggleSwitch.classList.add('active');
-      workingStatus.classList.add('active');
-    } else {
+  // Toggle timer on/off
+  toggleSwitch.addEventListener('click', () => {
+    if (isRunning) {
       // Stop timer
       isRunning = false;
-      clearInterval(timerInterval);
-      elapsedTime += new Date().getTime() - startTime;  // Add the current session to total elapsed time
-      toggleHandle.className = 'fas fa-play';
       toggleSwitch.classList.remove('active');
       workingStatus.classList.remove('active');
-      // Reset browser tab title when timer stops
-      document.title = 'Time Tracker';
-    }
-  }
-
-  // Add event listener for toggle switch
-  document.querySelector('.toggle-switch').addEventListener('click', toggleTimer);
-
-  // Update the log time button handler to require both project and task
-  document.querySelector('.log-time-btn').addEventListener('click', () => {
-    // Calculate total elapsed time first
-    const totalElapsed = elapsedTime + (isRunning ? (new Date().getTime() - startTime) : 0);
-    const hours = totalElapsed / (1000 * 60 * 60);
-    
-    // Validate the time before proceeding
-    if (totalElapsed === 0 || isNaN(totalElapsed)) {
-      alert('Cannot log zero or invalid time. Please start the timer and log some time first.');
-      return;
-    }
-    
-    if (isRunning) {
-      toggleTimer(); // Stop the timer first
-    }
-    
-    // Get current project and task
-    const project = projectInput.value.trim() || 'General';
-    const task = taskInput ? taskInput.value.trim() : '';
-    if (!project || !task) {
-      alert('Please select both a project and a task.');
-      return;
-    }
-    
-    // Create new session with Luxon DateTime
-    const newSession = {
-      timestamp: luxon.DateTime.now().setZone('Australia/Sydney'),
-      hours: hours,
-      project: project,
-      task: task
-    };
-    
-    // Add to sessions array and save
-    sessions.push(newSession);
-    saveSessions();
-    
-    // Reset timer display and elapsed time
-    const display = document.querySelector('.timer-display');
-    display.textContent = '00:00:00';
-    elapsedTime = 0;  // Reset elapsed time
-    
-    // Clear project and task input
-    projectInput.value = '';
-    if (taskInput) taskInput.value = '';
-  });
-  
-  // ===============================
-  // Manual Entry via Modal
-  // ===============================
-  document.getElementById('manualSessionLink').addEventListener('click', function(e) {
-    e.preventDefault();
-    document.getElementById('manualModal').style.display = 'block';
-  });
-  
-  document.getElementById('closeModal').addEventListener('click', function() {
-    document.getElementById('manualModal').style.display = 'none';
-  });
-  
-  // Update the manual entry handler to require both project and task
-  document.getElementById('addButton').addEventListener('click', () => {
-    const dateInputValue = document.getElementById('dateInput').value;
-    const projectInputValue = document.getElementById('projectInput')?.value.trim() || 'General';
-    const taskInputValue = document.getElementById('taskInput')?.value.trim() || '';
-    const hoursInputValue = parseFloat(document.getElementById('hoursInput').value) || 0;
-    const minutesInputValue = parseFloat(document.getElementById('minutesInput').value) || 0;
-    const totalHours = hoursInputValue + minutesInputValue / 60;
-    
-    // Validate the time before proceeding
-    if (totalHours === 0 || isNaN(totalHours)) {
-      alert('Cannot log zero or invalid time. Please enter valid hours or minutes.');
-      return;
-    }
-    if (!projectInputValue || !taskInputValue) {
-      alert('Please select both a project and a task.');
-      return;
-    }
-    
-    // Create timestamp in Sydney timezone
-    const timestamp = dateInputValue 
-      ? luxon.DateTime.fromISO(dateInputValue, { zone: 'Australia/Sydney' })
-      : luxon.DateTime.now().setZone('Australia/Sydney');
-    
-    const newSession = { 
-      timestamp, 
-      hours: totalHours,
-      project: projectInputValue,
-      task: taskInputValue
-    };
-    
-    sessions.push(newSession);
-    saveSessions();
-    document.getElementById('manualModal').style.display = 'none';
-  });
-  
-  // Update: Require both project and task for new sessions
-  // Assume there are two dropdowns/inputs: projectInput and taskInput
-  // If not, create a taskInput next to projectInput
-
-  // Add task input if it doesn't exist
-  if (!taskInput) {
-    const taskInputElem = document.createElement('input');
-    taskInputElem.type = 'text';
-    taskInputElem.id = 'taskInput';
-    taskInputElem.placeholder = 'Task';
-    taskInputElem.style.marginLeft = '10px';
-    document.getElementById('projectInput').parentNode.appendChild(taskInputElem);
-    taskInput = taskInputElem;
-  }
-
-  // When project changes, update task options
-  projectInput.addEventListener('input', () => {
-    updateTaskOptionsForProject(projectInput.value);
-  });
-
-  function updateTaskOptionsForProject(projectName) {
-    const project = projects.find(p => p.name === projectName);
-    if (!project) return;
-    const taskList = project.tasks.map(t => t.name);
-    // Optionally, show a datalist for taskInput
-    let dataList = document.getElementById('taskList');
-    if (!dataList) {
-      dataList = document.createElement('datalist');
-      dataList.id = 'taskList';
-      document.body.appendChild(dataList);
-      taskInput.setAttribute('list', 'taskList');
-    }
-    dataList.innerHTML = '';
-    taskList.forEach(taskName => {
-      const option = document.createElement('option');
-      option.value = taskName;
-      dataList.appendChild(option);
-    });
-  }
-
-  // Update session creation to require both project and task
-  const addSessionBtn = document.getElementById('addSessionBtn');
-  if (addSessionBtn) {
-    addSessionBtn.addEventListener('click', () => {
-      const projectName = projectInput.value.trim();
-      const taskName = taskInput.value.trim();
-      const hours = parseFloat(document.getElementById('hoursInput').value);
-      const date = document.getElementById('dateInput').value;
-      if (!projectName || !taskName || isNaN(hours) || !date) {
-        alert('Please select a project, a task, enter hours, and a date.');
-        return;
+      if (intervalId) {
+        clearInterval(intervalId);
+        intervalId = null;
       }
-      const project = projects.find(p => p.name === projectName);
-      if (!project || !project.tasks.find(t => t.name === taskName)) {
-        alert('Please select a valid project and task.');
-        return;
-      }
-      const timestamp = luxon.DateTime.fromISO(date).setZone('Australia/Sydney').toJSDate();
-      const newSession = {
-        timestamp,
-        hours,
-        project: projectName,
-        task: taskName
-      };
-      sessions.push(newSession);
-      saveSessions();
-      updateAllDisplays();
-    });
-  }
-  
-  // ===============================
-  // Daily Achievements Section
-  // ===============================
-  let achievements = [];
-  let currentMonthFilter = 'all'; // "all" or "YYYY-MM"
-  
-  async function loadAchievements() {
-    try {
-      const response = await fetch('http://localhost:3000/achievements.json');
-      achievements = await response.json();
-      renderAchievements();
-    } catch (err) {
-      console.error("Error loading achievements:", err);
-      achievements = [];
-    }
-  }
-  
-  async function saveAchievements() {
-    try {
-      const response = await fetch('http://localhost:3000/achievements.json', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(achievements)
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to save achievements');
-      }
-
-      console.log("Achievements saved successfully");
-    } catch (err) {
-      console.error("Error saving achievements:", err);
-    }
-  }
-  
-  const noteDateInput = document.getElementById('noteDateInput');
-  const noteInput = document.getElementById('noteInput');
-  const addNoteButton = document.getElementById('addNoteButton');
-  const notesDisplay = document.getElementById('notesDisplay');
-  const achievementsSidebar = document.getElementById('achievementsSidebar');
-  
-  // Initialize date input with current Sydney date
-  noteDateInput.value = getSydneyNow().toISODate();
-  
-  function getSydneyNow() {
-    return luxon.DateTime.now().setZone('Australia/Sydney');
-  }
-  
-  addNoteButton.addEventListener('click', function() {
-    const dateValue = noteDateInput.value.trim();
-    const noteText = noteInput.value.trim();
-    if (!noteText) return;
-    
-    // Get current Sydney time
-    const sydneyNow = getSydneyNow();
-    // Use provided date or current Sydney date
-    const dateString = dateValue || sydneyNow.toISODate();
-    
-    const newAchievement = {
-      id: Date.now(),
-      dateString,
-      text: noteText
-    };
-    // Avoid duplicates
-    if (!achievements.some(item => item.id === newAchievement.id)) {
-      achievements.push(newAchievement);
-      saveAchievements();
-      renderAchievements();
-      noteInput.value = '';
-    }
-  });
-  
-  function deduplicateAchievements(achievementsArray) {
-    const uniqueMap = new Map();
-    achievementsArray.forEach(item => {
-      uniqueMap.set(item.id, item);
-    });
-    return Array.from(uniqueMap.values());
-  }
-  
-  // Helper for day headings, e.g. "Monday Feb 24th"
-  function getOrdinalSuffix(n) {
-    if (n % 100 >= 11 && n % 100 <= 13) return 'th';
-    switch (n % 10) {
-      case 1: return 'st';
-      case 2: return 'nd';
-      case 3: return 'rd';
-      default: return 'th';
-    }
-  }
-  
-  function formatAchievementDate(dateString) {
-    const dt = luxon.DateTime.fromISO(dateString);
-    const day = dt.day;
-    const suffix = getOrdinalSuffix(day);
-    return dt.toFormat('cccc LLL') + ` ${day}${suffix}`;
-  }
-
-  // Build data structure grouped by month-year => day => array of items
-  function groupAchievements(achList) {
-    const grouped = {};
-    achList.forEach(item => {
-      // parse date
-      const dt = luxon.DateTime.fromISO(item.dateString);
-      const monthKey = dt.toFormat('yyyy-MM');  // e.g. "2025-02"
-      const monthLabel = dt.toFormat('LLLL yyyy'); // e.g. "February 2025"
-      const dayKey = dt.toISODate(); // e.g. "2025-02-24"
-
-      if (!grouped[monthKey]) {
-        grouped[monthKey] = {
-          label: monthLabel,
-          days: {}
-        };
-      }
-      if (!grouped[monthKey].days[dayKey]) {
-        grouped[monthKey].days[dayKey] = [];
-      }
-      grouped[monthKey].days[dayKey].push(item);
-    });
-    return grouped;
-  }
-
-  function renderMonthSidebar(grouped) {
-    achievementsSidebar.innerHTML = '';
-
-    // Flatten total achievements count
-    const totalCount = achievements.length;
-    // "All" link at the top
-    const ul = document.createElement('ul');
-    
-    const allLi = document.createElement('li');
-    const allLink = document.createElement('a');
-    allLink.href = "#";
-    allLink.textContent = `All (${totalCount})`;
-    allLink.addEventListener('click', (e) => {
-      e.preventDefault();
-      currentMonthFilter = 'all';
-      renderAchievements();
-    });
-    allLi.appendChild(allLink);
-    ul.appendChild(allLi);
-
-    // Build an array of month keys
-    let monthKeys = Object.keys(grouped);
-    // Sort them by descending date so newest months come first
-    monthKeys.sort().reverse();
-    
-    monthKeys.forEach(mKey => {
-      // Count how many achievements are in that month
-      let monthCount = 0;
-      Object.values(grouped[mKey].days).forEach(dayArr => {
-        monthCount += dayArr.length;
-      });
-      const li = document.createElement('li');
-      const link = document.createElement('a');
-      link.href = "#";
-      link.textContent = `${grouped[mKey].label} (${monthCount})`;
-      link.addEventListener('click', (e) => {
-        e.preventDefault();
-        currentMonthFilter = mKey; // e.g. "2025-02"
-        renderAchievements();
-      });
-      li.appendChild(link);
-      ul.appendChild(li);
-    });
-
-    achievementsSidebar.appendChild(ul);
-  }
-
-  function renderAchievementsContent(grouped) {
-    notesDisplay.innerHTML = '';
-    // If user selected a single month, only render that month
-    if (currentMonthFilter !== 'all') {
-      // Render just the single month
-      const single = {};
-      single[currentMonthFilter] = grouped[currentMonthFilter];
-      renderMonthSection(single);
+      logTimeBtn.disabled = false;
     } else {
-      // Render all months in descending order
-      renderMonthSection(grouped);
+      // Start timer
+      isRunning = true;
+      startTime = luxon.DateTime.now().setZone('Australia/Sydney');
+      toggleSwitch.classList.add('active');
+      workingStatus.classList.add('active');
+      intervalId = setInterval(updateTimerDisplay, 1000);
+      logTimeBtn.disabled = true;
     }
-  }
+  });
 
-  // Actually create DOM elements for each month + day
-  function renderMonthSection(grouped) {
-    const monthKeys = Object.keys(grouped).sort().reverse(); // descending
-    monthKeys.forEach(mKey => {
-      const monthObj = grouped[mKey];
-      const monthSection = document.createElement('div');
-      monthSection.classList.add('month-section');
+  // Log time button
+  logTimeBtn.addEventListener('click', () => {
+    const projectValue = document.getElementById('projectInput').value.trim();
+    const taskValue = document.getElementById('taskInput').value.trim();
+    
+    if (!projectValue || !taskValue) {
+      alert('Please enter both project and task names');
+      return;
+    }
 
-      // Month heading, e.g. "February 2025"
-      const monthHeading = document.createElement('h2');
-      monthHeading.textContent = monthObj.label;
-      monthSection.appendChild(monthHeading);
+    // Calculate elapsed time
+    const now = luxon.DateTime.now().setZone('Australia/Sydney');
+    const elapsed = now.diff(startTime, 'hours');
+    const hours = elapsed.hours + (elapsed.minutes / 60);
 
-      // Sort day keys in descending order
-      const dayKeys = Object.keys(monthObj.days).sort().reverse();
-      dayKeys.forEach(dayKey => {
-        const dayArr = monthObj.days[dayKey];
-        // Sort each day's achievements by ID descending (so newer notes come first)
-        dayArr.sort((a, b) => (b.id - a.id));
+    // Create new session
+    const newSession = {
+      timestamp: startTime.toISO(),
+      hours: hours,
+      project: projectValue,
+      task: taskValue
+    };
 
-        const noteDayDiv = document.createElement('div');
-        noteDayDiv.classList.add('note-day');
-        // e.g. "Monday Feb 24th"
-        const dayHeading = document.createElement('h3');
-        dayHeading.textContent = formatAchievementDate(dayKey);
-        noteDayDiv.appendChild(dayHeading);
+    sessions.push(newSession);
+    saveSessions();
+    
+    // Reset timer
+    isRunning = false;
+    toggleSwitch.classList.remove('active');
+    workingStatus.classList.remove('active');
+    if (intervalId) {
+      clearInterval(intervalId);
+      intervalId = null;
+    }
+    logTimeBtn.disabled = false;
+    timerDisplay.textContent = '00:00:00';
+  });
 
-        const ul = document.createElement('ul');
-        dayArr.forEach(item => {
-          const li = document.createElement('li');
-          // The text
-          const noteSpan = document.createElement('span');
-          noteSpan.textContent = item.text;
+  // ===============================
+  // Task Dropdown Functionality
+  // ===============================
+  let taskDropdownTimeout;
 
-          // Edit button
-          const editBtn = document.createElement('button');
-          editBtn.classList.add('edit-button');
-          editBtn.textContent = 'Edit';
-          editBtn.addEventListener('click', function() {
-            if (editBtn.textContent === 'Edit') {
-              editBtn.textContent = 'Save';
-              const editInput = document.createElement('input');
-              editInput.type = 'text';
-              editInput.value = item.text;
-              li.replaceChild(editInput, noteSpan);
-            } else {
-              const editInput = li.querySelector('input');
-              const updatedText = editInput.value.trim() || item.text;
-              item.text = updatedText;
-              editBtn.textContent = 'Edit';
-              noteSpan.textContent = updatedText;
-              li.replaceChild(noteSpan, editInput);
-              saveAchievements();
+  taskInput.addEventListener('input', () => {
+    clearTimeout(taskDropdownTimeout);
+    const query = taskInput.value.toLowerCase();
+    
+    if (query.length < 2) {
+      taskDropdown.style.display = 'none';
+      return;
+    }
+
+    taskDropdownTimeout = setTimeout(() => {
+      const matchingTasks = [];
+      
+      // Search through projects and their tasks
+      projects.forEach(project => {
+        if (project.name.toLowerCase().includes(query)) {
+          matchingTasks.push({
+            name: project.name,
+            color: project.color,
+            type: 'project'
+          });
+        }
+        
+        if (project.tasks && Array.isArray(project.tasks)) {
+          project.tasks.forEach(task => {
+            if (task.name.toLowerCase().includes(query)) {
+              matchingTasks.push({
+                name: `${project.name} - ${task.name}`,
+                color: task.color,
+                type: 'task'
+              });
             }
           });
-
-          li.appendChild(noteSpan);
-          li.appendChild(editBtn);
-          ul.appendChild(li);
-        });
-        noteDayDiv.appendChild(ul);
-        monthSection.appendChild(noteDayDiv);
+        }
       });
-      notesDisplay.appendChild(monthSection);
-    });
-  }
 
-  // Master function to sort achievements descending, group them, build sidebar, etc.
-  function renderAchievements() {
-    achievements = deduplicateAchievements(achievements);
-    // Sort achievements by date descending
-    achievements.sort((a, b) => {
-      // parse dateStrings
-      const dtA = luxon.DateTime.fromISO(a.dateString);
-      const dtB = luxon.DateTime.fromISO(b.dateString);
-      return dtB.toMillis() - dtA.toMillis();
-    });
-    const grouped = groupAchievements(achievements);
-    renderMonthSidebar(grouped);
-    renderAchievementsContent(grouped);
-  }
-  
-  function updateCommitChart() {
-    const container = document.getElementById('commit-chart');
-    if (!container) return;
+      // Also search through existing sessions
+      sessions.forEach(session => {
+        const projectTask = `${session.project} - ${session.task}`;
+        if (projectTask.toLowerCase().includes(query) && 
+            !matchingTasks.find(t => t.name === projectTask)) {
+          matchingTasks.push({
+            name: projectTask,
+            color: '#9370DB',
+            type: 'session'
+          });
+        }
+      });
 
-    // Get current time in Sydney
-    const now = luxon.DateTime.now().setZone('Australia/Sydney');
-    const year = now.year;
+      displayTaskDropdown(matchingTasks);
+    }, 300);
+  });
 
-    // Create start and end dates in Sydney timezone
-    const startDate = luxon.DateTime.fromObject({ year, month: 1, day: 1 }, { zone: 'Australia/Sydney' });
-    const endDate = luxon.DateTime.fromObject({ year, month: 12, day: 31 }, { zone: 'Australia/Sydney' });
-
-    // Generate array of dates for the year
-    const dates = [];
-    let currentDate = startDate;
-    while (currentDate <= endDate) {
-      dates.push(currentDate);
-      currentDate = currentDate.plus({ days: 1 });
+  function displayTaskDropdown(tasks) {
+    taskDropdown.innerHTML = '';
+    
+    if (tasks.length === 0) {
+      taskDropdown.style.display = 'none';
+      return;
     }
 
-    // Calculate commits for each day
-    const commits = dates.map(date => {
-      const dayStart = date.startOf('day');
-      const dayEnd = date.endOf('day');
-      return sessions.filter(session => {
-        return session.timestamp >= dayStart && session.timestamp <= dayEnd;
-      }).length;
-    });
-
-    // Find max commits for scaling
-    const maxCommits = Math.max(...commits);
-
-    // Create chart
-    container.innerHTML = '';
-    commits.forEach((count, index) => {
-      const day = document.createElement('div');
-      day.className = 'commit-day';
-      
-      // Calculate intensity based on number of commits
-      if (count === 0) {
-        day.classList.add('zero');
-      } else if (count <= 1) {
-        day.classList.add('low');
-      } else if (count <= 2) {
-        day.classList.add('medium');
-      } else if (count <= 3) {
-        day.classList.add('three-four');
-      } else {
-        day.classList.add('high');
+    // Group tasks by project
+    const groupedTasks = {};
+    tasks.forEach(task => {
+      const [projectName, taskName] = task.name.includes(' - ') ? task.name.split(' - ') : [task.name, ''];
+      if (!groupedTasks[projectName]) {
+        groupedTasks[projectName] = [];
       }
-
-      // Add tooltip
-      const tooltip = document.createElement('div');
-      tooltip.className = 'tooltip';
-      tooltip.textContent = `${dates[index].toFormat('MMM d')}: ${count} commit${count !== 1 ? 's' : ''}`;
-      day.appendChild(tooltip);
-
-      container.appendChild(day);
+      groupedTasks[projectName].push({ ...task, taskName });
     });
-  }
-  
-  // ===============================
-  // Initialization
-  // ===============================
-  // Load projects first, then sessions and achievements
-  loadProjects().then(() => {
-    loadSessions();
-    loadAchievements();
-    document.getElementById('dateInput').value = new Date().toISOString().split('T')[0];
-  });
 
-  // Project input and dropdown handling
+    Object.keys(groupedTasks).forEach(projectName => {
+      const projectGroup = document.createElement('div');
+      projectGroup.className = 'task-group';
+      
+      const projectHeader = document.createElement('div');
+      projectHeader.className = 'project-name';
+      projectHeader.textContent = projectName;
+      projectGroup.appendChild(projectHeader);
 
-  // Show dropdown when input is focused
-  projectInput.addEventListener('focus', () => {
-    updateTaskDropdown();
+      groupedTasks[projectName].forEach(task => {
+        const taskItem = document.createElement('div');
+        taskItem.className = 'task-item';
+        taskItem.innerHTML = `
+          <span class="task-color" style="background-color: ${task.color}"></span>
+          <span>${task.taskName || task.name}</span>
+        `;
+        
+        taskItem.addEventListener('click', () => {
+          const [project, taskName] = task.name.includes(' - ') ? task.name.split(' - ') : [task.name, ''];
+          document.getElementById('projectInput').value = project;
+          document.getElementById('taskInput').value = taskName || project;
+          taskDropdown.style.display = 'none';
+        });
+        
+        projectGroup.appendChild(taskItem);
+      });
+
+      taskDropdown.appendChild(projectGroup);
+    });
+
     taskDropdown.style.display = 'block';
-  });
+  }
 
   // Hide dropdown when clicking outside
   document.addEventListener('click', (e) => {
-    if (!projectInput.contains(e.target) && !taskDropdown.contains(e.target)) {
+    if (!taskInput.contains(e.target) && !taskDropdown.contains(e.target)) {
       taskDropdown.style.display = 'none';
     }
   });
 
-  // Filter tasks as user types
-  projectInput.addEventListener('input', () => {
-    updateTaskDropdown();
+  // ===============================
+  // Manual Session Entry
+  // ===============================
+  const manualSessionLink = document.getElementById('manualSessionLink');
+  const manualModal = document.getElementById('manualModal');
+  const closeModal = document.getElementById('closeModal');
+  const addButton = document.getElementById('addButton');
+
+  manualSessionLink.addEventListener('click', (e) => {
+    e.preventDefault();
+    manualModal.style.display = 'block';
+    
+    // Set today's date as default
+    const today = luxon.DateTime.now().setZone('Australia/Sydney').toISODate();
+    document.getElementById('dateInput').value = today;
   });
 
-  function updateTaskDropdown() {
-    const searchTerm = projectInput.value.toLowerCase();
-    taskDropdown.innerHTML = '';
+  closeModal.addEventListener('click', () => {
+    manualModal.style.display = 'none';
+  });
 
-    projects.forEach(project => {
-      const matchingTasks = project.tasks.filter(task => 
-        task.name.toLowerCase().includes(searchTerm)
-      );
+  addButton.addEventListener('click', () => {
+    const date = document.getElementById('dateInput').value;
+    const project = document.getElementById('projectInput').value;
+    const task = document.getElementById('taskInput').value;
+    const hours = parseFloat(document.getElementById('hoursInput').value) || 0;
+    const minutes = parseFloat(document.getElementById('minutesInput').value) || 0;
+    
+    const totalHours = hours + (minutes / 60);
+    
+    if (date && project && task && totalHours > 0) {
+      const sessionDate = luxon.DateTime.fromISO(date, { zone: 'Australia/Sydney' });
+      
+      const newSession = {
+        timestamp: sessionDate.toISO(),
+        hours: totalHours,
+        project: project,
+        task: task
+      };
+      
+      sessions.push(newSession);
+      saveSessions();
+      manualModal.style.display = 'none';
+      
+      // Clear inputs
+      document.getElementById('dateInput').value = '';
+      document.getElementById('projectInput').value = '';
+      document.getElementById('taskInput').value = '';
+      document.getElementById('hoursInput').value = '';
+      document.getElementById('minutesInput').value = '';
+    } else {
+      alert('Please fill in all fields with valid values');
+    }
+  });
 
-      if (matchingTasks.length > 0) {
-        const projectGroup = document.createElement('div');
-        projectGroup.className = 'task-group';
 
-        const projectName = document.createElement('div');
-        projectName.className = 'project-name';
-        projectName.textContent = project.name;
-        projectGroup.appendChild(projectName);
 
-        matchingTasks.forEach(task => {
-          const taskItem = document.createElement('div');
-          taskItem.className = 'task-item';
-
-          const taskColor = document.createElement('span');
-          taskColor.className = 'task-color';
-          taskColor.style.backgroundColor = task.color;
-
-          const taskName = document.createElement('span');
-          taskName.textContent = task.name;
-
-          taskItem.appendChild(taskColor);
-          taskItem.appendChild(taskName);
-
-          // Select task when clicked
-          taskItem.addEventListener('click', () => {
-            projectInput.value = task.name;
-            taskDropdown.style.display = 'none';
-          });
-
-          projectGroup.appendChild(taskItem);
-        });
-
-        taskDropdown.appendChild(projectGroup);
-      }
-    });
-
-    // Show/hide dropdown based on content
-    taskDropdown.style.display = taskDropdown.children.length > 0 ? 'block' : 'none';
-  }
+  // ===============================
+  // Initialize Application
+  // ===============================
+  
+  // Load data and initialize displays
+  loadSessions();
+  loadProjects();
+  
+  // Update timer display every second when running
+  setInterval(() => {
+    if (isRunning) {
+      updateTimerDisplay();
+    }
+  }, 1000);
 });

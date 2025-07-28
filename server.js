@@ -35,30 +35,7 @@ app.post('/data.json', async (req, res) => {
   }
 });
 
-// GET /achievements.json - Load achievements
-app.get('/achievements.json', async (req, res) => {
-  try {
-    const data = await fs.readFile('achievements.json', 'utf8');
-    res.json(JSON.parse(data));
-  } catch (err) {
-    if (err.code === 'ENOENT') {
-      // File doesn't exist, return empty array
-      res.json([]);
-    } else {
-      res.status(500).json({ error: 'Failed to read achievements.json' });
-    }
-  }
-});
 
-// POST /achievements.json - Save achievements
-app.post('/achievements.json', async (req, res) => {
-  try {
-    await fs.writeFile('achievements.json', JSON.stringify(req.body, null, 2));
-    res.json({ success: true });
-  } catch (err) {
-    res.status(500).json({ error: 'Failed to write achievements.json' });
-  }
-});
 
 // GET /projects.json - Load projects
 app.get('/projects.json', async (req, res) => {
