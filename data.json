@@ -2104,5 +2104,23 @@
     "hours": 0.8420705555555555,
     "project": "Parlour Maid",
     "task": "Research"
+  },
+  {
+    "timestamp": "2025-08-01T14:03:12.187+10:00",
+    "hours": 0.00273,
+    "project": "Parlour Maid",
+    "task": "Script"
+  },
+  {
+    "timestamp": "2025-08-01T14:04:55.993+10:00",
+    "hours": 0.017020277777777777,
+    "project": "Parlour Maid",
+    "task": "Script"
+  },
+  {
+    "timestamp": "2025-08-01T14:11:47.186+10:00",
+    "hours": 0.03752305555555555,
+    "project": "Parlour Maid",
+    "task": "Script"
   }
 ]

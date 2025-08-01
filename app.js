@@ -199,7 +199,17 @@ document.addEventListener('DOMContentLoaded', function() {
   function calculateTotal(start, end) {
     const total = sessions
       .filter(session => {
-        const sessionDate = luxon.DateTime.fromJSDate(session.timestamp).setZone('Australia/Sydney');
+        // Ensure timestamp is a Luxon DateTime object
+        let sessionDate;
+        if (typeof session.timestamp === 'string') {
+          sessionDate = luxon.DateTime.fromISO(session.timestamp, { zone: 'Australia/Sydney' });
+        } else if (session.timestamp && typeof session.timestamp.setZone === 'function') {
+          sessionDate = session.timestamp.setZone('Australia/Sydney');
+        } else {
+          console.warn('Invalid timestamp in session:', session);
+          return false;
+        }
+        
         const isInRange = sessionDate >= start && sessionDate < end;
         console.log("Session:", sessionDate.toISO(), "in range:", isInRange, "hours:", session.hours);
         return isInRange;
@@ -220,7 +230,17 @@ document.addEventListener('DOMContentLoaded', function() {
     const sydneyEnd = sydneyDate.endOf('day');
 
     return sessions.filter(session => {
-      return session.timestamp >= sydneyStart && session.timestamp <= sydneyEnd;
+      // Ensure timestamp is a Luxon DateTime object
+      let sessionTime;
+      if (typeof session.timestamp === 'string') {
+        sessionTime = luxon.DateTime.fromISO(session.timestamp, { zone: 'Australia/Sydney' });
+      } else if (session.timestamp && typeof session.timestamp.setZone === 'function') {
+        sessionTime = session.timestamp.setZone('Australia/Sydney');
+      } else {
+        console.warn('Invalid timestamp in session:', session);
+        return false;
+      }
+      return sessionTime >= sydneyStart && sessionTime <= sydneyEnd;
     }).reduce((sum, session) => sum + session.hours, 0);
   }
 
@@ -234,7 +254,17 @@ document.addEventListener('DOMContentLoaded', function() {
     const sydneyEnd = sydneyDate.endOf('day');
 
     const daySessions = sessions.filter(session => {
-      return session.timestamp >= sydneyStart && session.timestamp <= sydneyEnd;
+      // Ensure timestamp is a Luxon DateTime object
+      let sessionTime;
+      if (typeof session.timestamp === 'string') {
+        sessionTime = luxon.DateTime.fromISO(session.timestamp, { zone: 'Australia/Sydney' });
+      } else if (session.timestamp && typeof session.timestamp.setZone === 'function') {
+        sessionTime = session.timestamp.setZone('Australia/Sydney');
+      } else {
+        console.warn('Invalid timestamp in session:', session);
+        return false;
+      }
+      return sessionTime >= sydneyStart && sessionTime <= sydneyEnd;
     });
 
     // Get unique project-task combinations
@@ -258,7 +288,17 @@ document.addEventListener('DOMContentLoaded', function() {
     const sydneyEnd = sydneyDate.endOf('day');
 
     return sessions.filter(session => {
-      return session.timestamp >= sydneyStart && session.timestamp <= sydneyEnd;
+      // Ensure timestamp is a Luxon DateTime object
+      let sessionTime;
+      if (typeof session.timestamp === 'string') {
+        sessionTime = luxon.DateTime.fromISO(session.timestamp, { zone: 'Australia/Sydney' });
+      } else if (session.timestamp && typeof session.timestamp.setZone === 'function') {
+        sessionTime = session.timestamp.setZone('Australia/Sydney');
+      } else {
+        console.warn('Invalid timestamp in session:', session);
+        return false;
+      }
+      return sessionTime >= sydneyStart && sessionTime <= sydneyEnd;
     }).length;
   }
   
@@ -383,8 +423,18 @@ document.addEventListener('DOMContentLoaded', function() {
   function calculateBestDay() {
     const dailyTotals = {};
     sessions.forEach(session => {
-      // session.timestamp is already a Luxon DateTime object
-      const dateKey = session.timestamp.setZone('Australia/Sydney').toISODate();
+      // Ensure timestamp is a Luxon DateTime object
+      let timestamp;
+      if (typeof session.timestamp === 'string') {
+        timestamp = luxon.DateTime.fromISO(session.timestamp, { zone: 'Australia/Sydney' });
+      } else if (session.timestamp && typeof session.timestamp.setZone === 'function') {
+        timestamp = session.timestamp.setZone('Australia/Sydney');
+      } else {
+        console.warn('Invalid timestamp in session:', session);
+        return;
+      }
+      
+      const dateKey = timestamp.toISODate();
       dailyTotals[dateKey] = (dailyTotals[dateKey] || 0) + session.hours;
     });
     let maxHours = 0;
@@ -401,11 +451,21 @@ document.addEventListener('DOMContentLoaded', function() {
   function calculateAvgWorkDay() {
     const dailyTotals = {};
     sessions.forEach(session => {
-      // session.timestamp is already a Luxon DateTime object
-      const dayOfWeek = session.timestamp.setZone('Australia/Sydney').weekday;
+      // Ensure timestamp is a Luxon DateTime object
+      let timestamp;
+      if (typeof session.timestamp === 'string') {
+        timestamp = luxon.DateTime.fromISO(session.timestamp, { zone: 'Australia/Sydney' });
+      } else if (session.timestamp && typeof session.timestamp.setZone === 'function') {
+        timestamp = session.timestamp.setZone('Australia/Sydney');
+      } else {
+        console.warn('Invalid timestamp in session:', session);
+        return;
+      }
+      
+      const dayOfWeek = timestamp.weekday;
       // Monday=1 ... Friday=5
       if (dayOfWeek >= 1 && dayOfWeek <= 5) {
-        const dateKey = session.timestamp.setZone('Australia/Sydney').toISODate();
+        const dateKey = timestamp.toISODate();
         dailyTotals[dateKey] = (dailyTotals[dateKey] || 0) + session.hours;
       }
     });
@@ -547,8 +607,18 @@ document.addEventListener('DOMContentLoaded', function() {
     updateParentProjectOptions();
   });
 
+  // Function to reset the create project modal form
+  function resetCreateProjectModal() {
+    newProjectName.value = '';
+    document.querySelectorAll('.color-option').forEach(option => option.classList.remove('selected'));
+    itemTypeSelect.value = 'project';
+    parentProjectSelect.style.display = 'none';
+    updateParentProjectOptions();
+  }
+
   cancelProjectBtn.addEventListener('click', () => {
     createProjectModal.style.display = 'none';
+    resetCreateProjectModal();
   });
 
   confirmProjectBtn.addEventListener('click', () => {
@@ -589,8 +659,23 @@ document.addEventListener('DOMContentLoaded', function() {
       updateProjectOptions();
       createProjectModal.style.display = 'none';
       
+      // Store parent project ID before resetting the modal
+      const parentProjectId = isTask ? parentProjectSelect.value : null;
+      
+      resetCreateProjectModal();
+      
       // Set the new project/task as the current selection
-      document.getElementById('projectInput').value = name;
+      if (isTask) {
+        // For tasks, set the task input to the task name and project input to parent project
+        document.getElementById('taskInput').value = name;
+        const parentProject = projects.find(p => p.id === parentProjectId);
+        if (parentProject) {
+          document.getElementById('projectInput').value = parentProject.name;
+        }
+      } else {
+        // For projects, set the project input to the project name
+        document.getElementById('projectInput').value = name;
+      }
     }
   });
 
@@ -906,7 +991,16 @@ document.addEventListener('DOMContentLoaded', function() {
       // Calculate total hours for this day
       const dayHours = sessions
         .filter(session => {
-          const sessionTime = session.timestamp;
+          // Ensure timestamp is a Luxon DateTime object
+          let sessionTime;
+          if (typeof session.timestamp === 'string') {
+            sessionTime = luxon.DateTime.fromISO(session.timestamp, { zone: 'Australia/Sydney' });
+          } else if (session.timestamp && typeof session.timestamp.setZone === 'function') {
+            sessionTime = session.timestamp.setZone('Australia/Sydney');
+          } else {
+            console.warn('Invalid timestamp in session:', session);
+            return false;
+          }
           return sessionTime >= dayStart && sessionTime <= dayEnd;
         })
         .reduce((sum, session) => sum + session.hours, 0);
@@ -914,7 +1008,16 @@ document.addEventListener('DOMContentLoaded', function() {
       // Get unique projects for this day with their colors
       const dayProjects = Array.from(new Set(sessions
         .filter(session => {
-          const sessionTime = session.timestamp;
+          // Ensure timestamp is a Luxon DateTime object
+          let sessionTime;
+          if (typeof session.timestamp === 'string') {
+            sessionTime = luxon.DateTime.fromISO(session.timestamp, { zone: 'Australia/Sydney' });
+          } else if (session.timestamp && typeof session.timestamp.setZone === 'function') {
+            sessionTime = session.timestamp.setZone('Australia/Sydney');
+          } else {
+            console.warn('Invalid timestamp in session:', session);
+            return false;
+          }
           return sessionTime >= dayStart && sessionTime <= dayEnd;
         })
         .map(session => `${session.project} - ${session.task}`)
@@ -1031,7 +1134,16 @@ document.addEventListener('DOMContentLoaded', function() {
       
       // Calculate total hours for this month
       const monthSessions = sessions.filter(session => {
-        const sessionTime = session.timestamp;
+        // Ensure timestamp is a Luxon DateTime object
+        let sessionTime;
+        if (typeof session.timestamp === 'string') {
+          sessionTime = luxon.DateTime.fromISO(session.timestamp, { zone: 'Australia/Sydney' });
+        } else if (session.timestamp && typeof session.timestamp.setZone === 'function') {
+          sessionTime = session.timestamp.setZone('Australia/Sydney');
+        } else {
+          console.warn('Invalid timestamp in session:', session);
+          return false;
+        }
         return sessionTime >= monthStart && sessionTime <= monthEnd;
       });
       
