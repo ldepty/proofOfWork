@@ -1978,5 +1978,131 @@
     "hours": 0.8961166666666667,
     "project": "Cliff Stoll",
     "task": "Packaging"
+  },
+  {
+    "timestamp": "2025-07-28T11:54:15.352+10:00",
+    "hours": 1.005791388888889,
+    "project": "Parlour Maid",
+    "task": "Packaging"
+  },
+  {
+    "timestamp": "2025-07-28T14:13:29.180+10:00",
+    "hours": 0.02531111111111111,
+    "project": "Parlour Maid",
+    "task": "Packaging"
+  },
+  {
+    "timestamp": "2025-07-28T14:17:02.191+10:00",
+    "hours": 0.038766666666666665,
+    "project": "Parlour Maid",
+    "task": "Packaging"
+  },
+  {
+    "timestamp": "2025-07-28T16:02:37.365+10:00",
+    "hours": 0.7601461111111111,
+    "project": "Parlour Maid",
+    "task": "Research"
+  },
+  {
+    "timestamp": "2025-07-29T10:07:44.247+10:00",
+    "hours": 0.8975561111111111,
+    "project": "Parlour Maid",
+    "task": "Research"
+  },
+  {
+    "timestamp": "2025-07-29T10:35:50.551+10:00",
+    "hours": 0.39259055555555555,
+    "project": "Parlour Maid",
+    "task": "Packaging"
+  },
+  {
+    "timestamp": "2025-07-29T11:55:56.086+10:00",
+    "hours": 0.7052411111111111,
+    "project": "Parlour Maid",
+    "task": "Packaging"
+  },
+  {
+    "timestamp": "2025-07-29T13:22:57.383+10:00",
+    "hours": 0.9876991666666667,
+    "project": "Parlour Maid",
+    "task": "Packaging"
+  },
+  {
+    "timestamp": "2025-07-29T13:33:21.647+10:00",
+    "hours": 0.015483888888888889,
+    "project": "Parlour Maid",
+    "task": "Packaging"
+  },
+  {
+    "timestamp": "2025-07-29T13:37:29.713+10:00",
+    "hours": 0.027439722222222223,
+    "project": "Parlour Maid",
+    "task": "Packaging"
+  },
+  {
+    "timestamp": "2025-07-29T15:03:16.090+10:00",
+    "hours": 0.6412536111111111,
+    "project": "Parlour Maid",
+    "task": "Packaging"
+  },
+  {
+    "timestamp": "2025-07-29T19:23:38.685+10:00",
+    "hours": 1.6043538888888889,
+    "project": "Parlour Maid",
+    "task": "Packaging"
+  },
+  {
+    "timestamp": "2025-07-30T11:12:06.084+10:00",
+    "hours": 0.223295,
+    "project": "Parlour Maid",
+    "task": "Research"
+  },
+  {
+    "timestamp": "2025-07-30T12:51:46.818+10:00",
+    "hours": 0.7062347222222223,
+    "project": "Parlour Maid",
+    "task": "Research"
+  },
+  {
+    "timestamp": "2025-07-30T14:18:02.860+10:00",
+    "hours": 0.22358305555555555,
+    "project": "Parlour Maid",
+    "task": "Research"
+  },
+  {
+    "timestamp": "2025-07-30T14:48:09.064+10:00",
+    "hours": 0.08011277777777778,
+    "project": "Parlour Maid",
+    "task": "Research"
+  },
+  {
+    "timestamp": "2025-07-31T09:28:15.888+10:00",
+    "hours": 0.7659577777777777,
+    "project": "Parlour Maid",
+    "task": "Research"
+  },
+  {
+    "timestamp": "2025-07-31T11:39:44.597+10:00",
+    "hours": 0.3433288888888889,
+    "project": "Parlour Maid",
+    "task": "Research"
+  },
+  {
+    "timestamp": "2025-08-01T09:30:42.987+10:00",
+    "hours": 1.4115080555555555,
+    "project": "Parlour Maid",
+    "task": "Research"
+  },
+  {
+    "timestamp": "2025-08-01T11:25:35.437+10:00",
+    "hours": 1.0937477777777778,
+    "project": "Parlour Maid",
+    "task": "Research"
+  },
+  {
+    "timestamp": "2025-08-01T13:03:17.735+10:00",
+    "hours": 0.8420705555555555,
+    "project": "Parlour Maid",
+    "task": "Research"
   }
 ]

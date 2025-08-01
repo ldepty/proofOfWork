@@ -40,10 +40,22 @@ document.addEventListener('DOMContentLoaded', function() {
       }
       
       // Convert timestamps to Luxon DateTime objects in Sydney timezone
-      sessions = data.map(session => ({
-        ...session,
-        timestamp: luxon.DateTime.fromISO(session.timestamp, { zone: 'Australia/Sydney' })
-      }));
+      sessions = data.map(session => {
+        try {
+          const timestamp = luxon.DateTime.fromISO(session.timestamp, { zone: 'Australia/Sydney' });
+          if (!timestamp.isValid) {
+            console.warn('Invalid timestamp in session:', session);
+            return null; // Skip invalid sessions
+          }
+          return {
+            ...session,
+            timestamp: timestamp
+          };
+        } catch (error) {
+          console.error('Error converting timestamp for session:', error, session);
+          return null; // Skip sessions with conversion errors
+        }
+      }).filter(session => session !== null); // Remove null sessions
 
       console.log("Sessions loaded successfully:", sessions.length);
       console.log("Sample session:", sessions[0]);
@@ -60,12 +72,29 @@ document.addEventListener('DOMContentLoaded', function() {
   
   async function saveSessions() {
     try {
+      console.log('Saving sessions:', sessions);
+      
       // Convert Luxon DateTime objects to ISO strings for storage
-      const dataToSave = sessions.map(session => ({
-        ...session,
-        timestamp: session.timestamp.toISO()
-      }));
+      const dataToSave = sessions.map(session => {
+        let timestamp;
+        if (typeof session.timestamp === 'string') {
+          timestamp = session.timestamp;
+        } else if (session.timestamp && typeof session.timestamp.toISO === 'function') {
+          timestamp = session.timestamp.toISO();
+        } else {
+          console.error('Invalid timestamp format:', session.timestamp);
+          timestamp = new Date().toISOString();
+        }
+        
+        return {
+          ...session,
+          timestamp: timestamp
+        };
+      });
 
+      console.log('Data to save:', dataToSave);
+
+      console.log('Sending request to server...');
       const response = await fetch('http://localhost:3000/data.json', {
         method: 'POST',
         headers: {
@@ -73,13 +102,15 @@ document.addEventListener('DOMContentLoaded', function() {
         },
         body: JSON.stringify(dataToSave)
       });
+      console.log('Server response status:', response.status);
 
       if (!response.ok) {
-        throw new Error('Failed to save sessions');
+        const errorText = await response.text();
+        throw new Error(`Failed to save sessions: ${response.status} ${errorText}`);
       }
 
-      console.log("Sessions saved successfully");
-      updateAllDisplays(); // Update all displays after saving
+      const result = await response.json();
+      console.log("Sessions saved successfully:", result);
     } catch (err) {
       console.error("Error saving sessions:", err);
     }
@@ -730,11 +761,30 @@ document.addEventListener('DOMContentLoaded', function() {
     let streak = 0;
     
     // Get all dates with sessions and convert them to date strings for easy comparison
-    const datesWithSessions = new Set(
-      sessions.map(session => 
-        session.timestamp.startOf('day').toISODate()
-      )
-    );
+    const datesWithSessions = new Set();
+    
+    sessions.forEach(session => {
+      try {
+        // Ensure timestamp is a Luxon DateTime object
+        let timestamp;
+        if (typeof session.timestamp === 'string') {
+          timestamp = luxon.DateTime.fromISO(session.timestamp, { zone: 'Australia/Sydney' });
+        } else if (session.timestamp && typeof session.timestamp.startOf === 'function') {
+          timestamp = session.timestamp;
+        } else {
+          console.warn('Invalid timestamp in session:', session);
+          return; // Skip this session
+        }
+        
+        if (timestamp && timestamp.isValid) {
+          datesWithSessions.add(timestamp.startOf('day').toISODate());
+        } else {
+          console.warn('Invalid timestamp after conversion:', session);
+        }
+      } catch (error) {
+        console.error('Error processing session timestamp:', error, session);
+      }
+    });
 
     // Check if there's work logged today
     if (datesWithSessions.has(currentDate.toISODate())) {
@@ -1072,6 +1122,8 @@ document.addEventListener('DOMContentLoaded', function() {
   // ===============================
   let isRunning = false;
   let startTime = null;
+  let pauseTime = null;
+  let totalElapsedTime = 0; // Track total elapsed time in milliseconds
   let currentSession = null;
   let intervalId = null;
 
@@ -1082,46 +1134,69 @@ document.addEventListener('DOMContentLoaded', function() {
 
   // Initialize timer display
   function updateTimerDisplay() {
-    if (!isRunning || !startTime) {
+    if (!isRunning && totalElapsedTime === 0) {
       timerDisplay.textContent = '00:00:00';
       return;
     }
 
-    const now = luxon.DateTime.now().setZone('Australia/Sydney');
-    const elapsed = now.diff(startTime, ['hours', 'minutes', 'seconds']);
-    
-    const hours = Math.floor(elapsed.hours);
-    const minutes = Math.floor(elapsed.minutes);
-    const seconds = Math.floor(elapsed.seconds);
+    let currentElapsed;
+    if (isRunning && startTime) {
+      // Timer is running, calculate current elapsed time
+      const now = luxon.DateTime.now().setZone('Australia/Sydney');
+      const currentSessionElapsed = now.diff(startTime, 'milliseconds');
+      currentElapsed = totalElapsedTime + currentSessionElapsed;
+    } else {
+      // Timer is paused, use total elapsed time
+      currentElapsed = totalElapsedTime;
+    }
+
+    // Convert milliseconds to hours, minutes, seconds
+    const totalSeconds = Math.floor(currentElapsed / 1000);
+    const hours = Math.floor(totalSeconds / 3600);
+    const minutes = Math.floor((totalSeconds % 3600) / 60);
+    const seconds = totalSeconds % 60;
     
     timerDisplay.textContent = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
   }
 
   // Toggle timer on/off
   toggleSwitch.addEventListener('click', () => {
+    console.log('Toggle switch clicked. Current state - isRunning:', isRunning, 'startTime:', startTime, 'totalElapsedTime:', totalElapsedTime);
     if (isRunning) {
-      // Stop timer
+      // Pause timer
       isRunning = false;
+      pauseTime = luxon.DateTime.now().setZone('Australia/Sydney');
+      
+      // Calculate and add the current session's elapsed time to total
+      if (startTime) {
+        const currentSessionElapsed = pauseTime.diff(startTime, 'milliseconds');
+        totalElapsedTime += currentSessionElapsed;
+        console.log('Paused timer. Current session elapsed:', currentSessionElapsed, 'Total elapsed:', totalElapsedTime);
+      }
+      
       toggleSwitch.classList.remove('active');
       workingStatus.classList.remove('active');
       if (intervalId) {
         clearInterval(intervalId);
         intervalId = null;
       }
+      // Keep log button enabled when timer is paused (so user can log the session)
       logTimeBtn.disabled = false;
     } else {
-      // Start timer
+      // Resume timer
       isRunning = true;
       startTime = luxon.DateTime.now().setZone('Australia/Sydney');
+      pauseTime = null;
       toggleSwitch.classList.add('active');
       workingStatus.classList.add('active');
       intervalId = setInterval(updateTimerDisplay, 1000);
-      logTimeBtn.disabled = true;
+      logTimeBtn.disabled = false; // Enable log button when timer starts
     }
   });
 
   // Log time button
-  logTimeBtn.addEventListener('click', () => {
+  logTimeBtn.addEventListener('click', async () => {
+    console.log('Log time button clicked. isRunning:', isRunning, 'startTime:', startTime);
     const projectValue = document.getElementById('projectInput').value.trim();
     const taskValue = document.getElementById('taskInput').value.trim();
     
@@ -1130,32 +1205,62 @@ document.addEventListener('DOMContentLoaded', function() {
       return;
     }
 
-    // Calculate elapsed time
-    const now = luxon.DateTime.now().setZone('Australia/Sydney');
-    const elapsed = now.diff(startTime, 'hours');
-    const hours = elapsed.hours + (elapsed.minutes / 60);
+    // Check if we have a valid start time
+    if (!startTime) {
+      alert('No active session to log. Please start the timer first.');
+      return;
+    }
+
+    // Calculate total elapsed time including any paused time
+    let totalHours;
+    if (isRunning && startTime) {
+      // Timer is currently running, add current session time to total
+      const now = luxon.DateTime.now().setZone('Australia/Sydney');
+      const currentSessionElapsed = now.diff(startTime, 'milliseconds');
+      const totalElapsed = totalElapsedTime + currentSessionElapsed;
+      totalHours = totalElapsed / (1000 * 60 * 60); // Convert milliseconds to hours
+    } else {
+      // Timer is paused, use total elapsed time
+      totalHours = totalElapsedTime / (1000 * 60 * 60); // Convert milliseconds to hours
+    }
 
     // Create new session
     const newSession = {
       timestamp: startTime.toISO(),
-      hours: hours,
+      hours: totalHours,
       project: projectValue,
       task: taskValue
     };
 
+    console.log('Logging session:', newSession);
     sessions.push(newSession);
-    saveSessions();
+    console.log('Sessions array after adding new session:', sessions);
+    console.log('Total sessions now:', sessions.length);
     
-    // Reset timer
+    // Reset timer completely
     isRunning = false;
+    startTime = null;
+    pauseTime = null;
+    totalElapsedTime = 0;
     toggleSwitch.classList.remove('active');
     workingStatus.classList.remove('active');
     if (intervalId) {
       clearInterval(intervalId);
       intervalId = null;
     }
-    logTimeBtn.disabled = false;
+    logTimeBtn.disabled = true; // Disable log button since no session to log
     timerDisplay.textContent = '00:00:00';
+    
+    // Save sessions and then update displays
+    try {
+      await saveSessions();
+      // Update displays to show the new session
+      updateAllDisplays();
+    } catch (err) {
+      console.error('Error saving session:', err);
+      // Still update displays even if save fails
+      updateAllDisplays();
+    }
   });
 
   // ===============================
@@ -1531,10 +1636,6 @@ document.addEventListener('DOMContentLoaded', function() {
   
   initializeApp();
   
-  // Update timer display every second when running
-  setInterval(() => {
-    if (isRunning) {
-      updateTimerDisplay();
-    }
-  }, 1000);
+  // Timer display is handled by the toggle switch interval
+  // No need for a separate global interval
 });

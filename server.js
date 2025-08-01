@@ -28,9 +28,15 @@ app.get('/data.json', async (req, res) => {
 // POST /data.json - Save sessions
 app.post('/data.json', async (req, res) => {
   try {
+    console.log('Received POST request to /data.json');
+    console.log('Request body:', req.body);
+    console.log('Number of sessions to save:', req.body.length);
+    
     await fs.writeFile('data.json', JSON.stringify(req.body, null, 2));
+    console.log('Successfully wrote data.json');
     res.json({ success: true });
   } catch (err) {
+    console.error('Error saving data.json:', err);
     res.status(500).json({ error: 'Failed to write data.json' });
   }
 });
